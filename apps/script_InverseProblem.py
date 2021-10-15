@@ -119,7 +119,7 @@ Inverse problem
 ==================================================================================================================
 """
 
-### NOTE: Forward problem works calling solve_detach()
+### NOTE: Forward problem works calling solve_detach() for "pyadjoint" version and "forward_solve" for torch version
 ### NOTE: Inverse problem has yet to be debugged and optimized
 
 model = ViscoelasticityProblem(**config)
