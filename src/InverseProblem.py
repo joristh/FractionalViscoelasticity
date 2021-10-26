@@ -16,7 +16,7 @@ from torch.nn.utils.convert_parameters import parameters_to_vector
 
 class InverseProblem:
 
-    def __init__(self, **kwargs) -> None:
+    def __init__(self, *args, **kwargs) -> None:
         self.objective = kwargs.get("objective", None)
         self.Reg       = kwargs.get("regularization", None)  
 
@@ -24,27 +24,30 @@ class InverseProblem:
         self.calibrate(Model)
 
 
-    def calibrate(self, Model, data=None, initial_guess=None, **kwargs):
+    def calibrate(self, Model, objective, initial_guess=None, **kwargs):
         verbose = kwargs.get("verbose", False)
         lr      = kwargs.get("lr",  1.)
         tol     = kwargs.get("tol", 1.e-3)
 
-        Model.fg_export = False
+        Model.fg_inverse = True
+        Model.fg_export  = False
 
         if initial_guess is not None:
             for i, p in enumerate(Model.parameters()):
                 p.data[:] = initial_guess[i]
             
 
-        self.Optimizer = kwargs.get('Optimizer', torch.optim.sgd)
+        self.Optimizer = kwargs.get('Optimizer', torch.optim.SGD)
         self.Optimizer = self.Optimizer(Model.parameters(), lr=lr) #, line_search_fn='strong_wolfe')
 
         def closure():
             self.Optimizer.zero_grad()
             theta = parameters_to_vector(Model.parameters())
-            self.loss = self.objective(theta)
-            if self.Reg:
-                self.loss = self.loss + self.Reg(theta)
+            Model.forward_solve()
+            obs = Model.observations
+            self.loss = objective(obs)
+            if self.reg:
+                self.loss = self.loss + self.reg(theta)
             self.loss.backward()
             if verbose:
                 print('loss = ', self.loss.item())
@@ -53,14 +56,16 @@ class InverseProblem:
                 # self.LossFunc.Model.plot()
             return self.loss
 
-        nepochs = 10
+        nepochs = kwargs.get("nepochs", 10)
         for epoch in range(nepochs):
             if verbose:
                 print()
                 print('=================================')
-                print('-> Epoch {0:d}'.format(epoch))
+                print('-> Epoch {0:d}/{1:d}'.format(epoch+1, nepochs))
                 print('=================================')
-            self.Optimizer.step(closure)
+            # self.Optimizer.step(closure)
+            closure()
+            self.Optimizer.step()
             # if self.verbose:
             #     self.print_grad()
             #     self.print_parameters()

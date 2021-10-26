@@ -45,7 +45,7 @@ class TipDisplacementObserver(AbstractObserver):
         self.tip_area = assemble(1.*ds)
         self.Model = Model
 
-    def observation(self):
+    def observe(self):
         u = self.Model.u.reshape([1, -1, self.Model.ndim])
         u_tip = self.__call__(u)
         return u_tip

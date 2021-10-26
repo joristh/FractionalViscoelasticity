@@ -150,7 +150,11 @@ class SumOfExponentialsKernel_Torch(nn.Module):
         self.compute_coefficients(self.h)
 
 
-    def compute_coefficients(self, h, gamma=1):
+    def compute_coefficients(self, h=None, gamma=1):
+        if h is None:
+            h = self.h
+        else:
+            self.h = h
         lmbda = self.Exponents
         theta = lmbda / (1 + lmbda)
         lgh   = lmbda*gamma*h
@@ -160,13 +164,18 @@ class SumOfExponentialsKernel_Torch(nn.Module):
         self.coef_ck = 1 / den
         self.coef_a  = ( self.Weights * self.coef_ak ).sum()
         self.coef_c  = ( self.Weights * self.coef_ck ).sum()
-        self.h = h
+
+
+    def init(self):
+        self.compute_coefficients()
+        self.modes = None
+        
 
 
     def update_history(self, F):
         F_new = F.reshape([-1, 1])
 
-        if not hasattr(self, "modes"):
+        if (not hasattr(self, "modes")) or (self.modes is None):
             self.modes = torch.zeros([F_new.shape[0], self.nModes])
             self.F_old = torch.zeros_like(F_new)
 

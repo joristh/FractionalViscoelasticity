@@ -9,7 +9,8 @@ import matplotlib.pyplot as plt
 
 from src.Viscoelasticity_torch import ViscoelasticityProblem
 from src.InverseProblem import InverseProblem
-from src.Observations import TipDisplacementObserver
+from src.Observers import TipDisplacementObserver
+from src.Objectives import MSE
 
 
 
@@ -46,38 +47,6 @@ cutoff_Tc = 4/5
 loading = Expression(("0", "t <= tc ? p0*t/tc : 0", "0"), t=0, tc=cutoff_Tc, p0=p0, degree=0)
 # loading = Expression(("0", "0", "t <= tc ? p0*t/tc : 0"), t=0, tc=cutoff_Tc, p0=p0, degree=0)
 
-# ### Observation operator: here tip displacement
-# def observation(Model): 
-#     # # u_tip = Model.u(1., 0.05, 0.02)[1]
-#     # u  = Model.u ### no torch
-#     u  = Model.u_func ### torch
-#     ds = Model.ds_Neumann
-#     if not hasattr(Model, "tip_area"):
-#         Model.tip_area = assemble(1.*ds)
-#         # Model.tip_form = Model.u.sub(1)*ds
-#     # u_tip = [ assemble(u.sub(j)*ds, annotate=True) / S for j in range(Model.ndim) ]
-#     u_tip = assemble(u.sub(1)*ds, annotate=False) / Model.tip_area
-#     # J = assemble(inner(u,u)*dx)
-#     # print('Tip displacemetn = ', u_tip)
-#     return u_tip
-
-### Loss function
-def myLossFunction(Model, parameters, data):
-    y = Model.forward_solve(parameters)
-    assert( len(y) == len(data) )
-    J = 0.
-    for n, yn in enumerate(y):
-        J += (yn - data[n])**2
-    # dJ = compute_gradient(J, [Control(p) for p in Model.ViscousTerm.parameters()] )
-    # print("\n -> My monitor:")
-    # print("              Objective = ", J)
-    # print("         grad Objective = ", dJ)
-    # print()
-    # J = assemble(inner(y,y)*dx)
-    return J
-
-
-
 
 
 config = {
@@ -85,10 +54,10 @@ config = {
     'inputfolder'       :   inputfolder,
     'outputfolder'      :   outputfolder,
     'export'            :   True,
-    'mode'              :   "forward", ### "generate_data", "inverse", "forward"
+    'mode'              :   "inverse", ### "generate_data", "inverse", "forward"
 
     'FinalTime'         :   4,
-    'nTimeSteps'        :   40,
+    'nTimeSteps'        :   10,
 
     'mesh'              :   mesh,
     'DirichletBoundary' :   DirichletBoundary,
@@ -104,9 +73,9 @@ config = {
     'weights'           :   [1.], #, 10], #[100,  100, 100, 100],
     'exponents'         :   [0.], #, 1000], #[0.1,  1, 10, 100],
 
+    ### Optimization
     'observer'          :   TipDisplacementObserver,
-    # 'observation'       :   observation,
-    'objective'         :   myLossFunction,
+    'nepochs'           :   100,
 }
 
 
@@ -140,13 +109,14 @@ elif config['mode'] == "inverse": ### Inverse problem
     print("       INVERSE PROBLEM")
     print("================================")
 
-    data = np.loadtxt(inputfolder+"data_tip_displacement.csv")
-    IP   = InverseProblem(**config)
+    data      = np.loadtxt(inputfolder+"data_tip_displacement.csv")
+    objective = MSE(data=data)
+    IP        = InverseProblem(**config)
 
     theta_ini = [0.01, 0.1, 1., 10.]
-    theta_opt = IP.calibrate(model, data, initial_guess=theta_ini)
+    theta_opt = IP.calibrate(model, objective=objective, initial_guess=theta_ini, **config)
     print("Optimal parameters :", theta_opt)
-    # print("Final objective :", IP.final_objective)
+    print("Final objective :", IP.loss)
 
 
 

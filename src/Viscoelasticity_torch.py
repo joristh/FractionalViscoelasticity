@@ -33,6 +33,7 @@ class ViscoelasticityProblem(torch_fenics.FEniCSModule):
         self.inputfolder  = kwargs.get("inputfolder", "./")
         self.outputfolder = kwargs.get("outputfolder", "./")
         self.fg_viscosity = kwargs.get("viscosity", False)
+        self.fg_inverse   = kwargs.get("InverseProblem", False)
 
         # elastic parameters
         E  = kwargs.get('Young', 1.e3)
@@ -123,7 +124,6 @@ class ViscoelasticityProblem(torch_fenics.FEniCSModule):
         observer = kwargs.get("observer", None)
         if observer:
             self.observer = observer(Model=self)
-            self.observation = self.observer.observation
 
 
 
@@ -238,12 +238,9 @@ class ViscoelasticityProblem(torch_fenics.FEniCSModule):
         self.history = torch.zeros_like(self.u, requires_grad=True)
         self.w = torch.zeros_like(self.u)
 
+        self.kernel.init()
 
-        if hasattr(self.kernel, "modes"): self.kernel.modes[:] = 0.
-        self.kernel.compute_coefficients(self.dt)
-
-
-        self.QoIs = []
+        self.observations = []
         self.Energy_elastic = np.array([])
         self.Energy_kinetic = np.array([])
 
@@ -305,6 +302,14 @@ class ViscoelasticityProblem(torch_fenics.FEniCSModule):
             self.file_results.write(self.w_func, time)
             self.file_results.write(self.p_func, time)
 
+
+
+    def observe(self):
+        if self.observer:
+            if not hasattr(self, "observations"): self.observations = []
+            obs_n = self.observer.observe()
+            self.observations.append(obs_n)
+
     """
     ==================================================================================================================
     USER DEFINED ROUTINES
@@ -315,20 +320,15 @@ class ViscoelasticityProblem(torch_fenics.FEniCSModule):
 
         ### TODO: your code here
 
-        if self.observation:
-            if not hasattr(self, "QoIs"): self.QoIs = []
-            qn = self.observation()
-            self.QoIs.append(qn)
-            # print("time=", time, "      tip=", qn.item())
-
-
-        E_elas = assemble(0.5*self.k(self.u_func, self.u_func))
-        E_kin  = assemble(0.5*self.m(self.v_func, self.v_func))
-        # E_damp += dt*assemble(c(v_old, v_old))
-        # E_ext += assemble(Wext(u-u_old))
-        # E_tot = E_elas+E_kin #+E_damp #-E_ext
-        self.Energy_elastic = np.append(self.Energy_elastic, E_elas)
-        self.Energy_kinetic = np.append(self.Energy_kinetic, E_kin)
+        ### EXAMPLE: energies
+        if not self.fg_inverse:
+            E_elas = assemble(0.5*self.k(self.u_func, self.u_func))
+            E_kin  = assemble(0.5*self.m(self.v_func, self.v_func))
+            # E_damp += dt*assemble(c(v_old, v_old))
+            # E_ext += assemble(Wext(u-u_old))
+            # E_tot = E_elas+E_kin #+E_damp #-E_ext
+            self.Energy_elastic = np.append(self.Energy_elastic, E_elas)
+            self.Energy_kinetic = np.append(self.Energy_kinetic, E_kin)
 
 
 
@@ -343,9 +343,11 @@ class ViscoelasticityProblem(torch_fenics.FEniCSModule):
         if parameters is not None:
             self.kernel.update_parameters(parameters)
 
-        self.initialize_state()         
+        self.initialize_state()
 
-        for (i, t) in tqdm(enumerate(self.time_steps), total=self.time_steps.size):
+        pbar = tqdm(total=self.time_steps.size)
+
+        for (i, t) in enumerate(self.time_steps):
 
             self.update_forces(t)
             
@@ -354,9 +356,14 @@ class ViscoelasticityProblem(torch_fenics.FEniCSModule):
             self.update_state()
             self.export_state(t)
 
+            self.observe()
             self.user_defined_routines(t)
 
-        return torch.stack(self.QoIs)
+            pbar.update(1)
+        del(pbar)
+
+        self.observations = torch.stack(self.observations)
+        return self.observations
 
 
     """
