@@ -222,6 +222,11 @@ class ViscoelasticityProblem(torch_fenics.FEniCSModule):
 
     def initialize_state(self):
 
+        if self.fg_inverse:
+            torch.set_grad_enabled(True)
+        else:
+            torch.set_grad_enabled(False)
+
         self.fg_Adjoint = False
 
         self.u_func = Function(self.V, name="displacement")

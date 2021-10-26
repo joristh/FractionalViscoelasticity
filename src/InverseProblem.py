@@ -12,22 +12,24 @@ Inverse problem using torch optimizer
 
 import torch
 from torch.nn.utils.convert_parameters import parameters_to_vector
+from ufl.measure import register_integral_type
 
 
 class InverseProblem:
 
-    def __init__(self, *args, **kwargs) -> None:
-        self.objective = kwargs.get("objective", None)
-        self.Reg       = kwargs.get("regularization", None)  
+    def __init__(self, *args, **kwargs):
+        # self.calibrate(*args, **kwargs)
+        pass
 
-    def __call__(self, Model):
-        self.calibrate(Model)
+    def __call__(self, *args, **kwargs):
+        self.calibrate(*args, **kwargs)
 
 
     def calibrate(self, Model, objective, initial_guess=None, **kwargs):
         verbose = kwargs.get("verbose", False)
         lr      = kwargs.get("lr",  1.)
         tol     = kwargs.get("tol", 1.e-3)
+        reg     = kwargs.get("regularization", None)
 
         Model.fg_inverse = True
         Model.fg_export  = False
@@ -37,8 +39,12 @@ class InverseProblem:
                 p.data[:] = initial_guess[i]
             
 
-        self.Optimizer = kwargs.get('Optimizer', torch.optim.SGD)
-        self.Optimizer = self.Optimizer(Model.parameters(), lr=lr) #, line_search_fn='strong_wolfe')
+        optimizer = kwargs.get("optimizer", torch.optim.SGD)
+        if optimizer is torch.optim.SGD:
+            self.Optimizer = optimizer(Model.parameters(), lr=lr)
+        elif optimizer is torch.optim.LBFGS:
+            self.Optimizer = optimizer(Model.parameters(), lr=lr, line_search_fn='strong_wolfe')
+
 
         def closure():
             self.Optimizer.zero_grad()
@@ -46,30 +52,22 @@ class InverseProblem:
             Model.forward_solve()
             obs = Model.observations
             self.loss = objective(obs)
-            if self.reg:
-                self.loss = self.loss + self.reg(theta)
+            if reg: self.loss = self.loss + reg(theta)
             self.loss.backward()
-            if verbose:
-                print('loss = ', self.loss.item())
-                # self.print_grad()
-                # self.print_parameters()
-                # self.LossFunc.Model.plot()
             return self.loss
 
         nepochs = kwargs.get("nepochs", 10)
         for epoch in range(nepochs):
+            self.Optimizer.step(closure)
             if verbose:
                 print()
                 print('=================================')
                 print('-> Epoch {0:d}/{1:d}'.format(epoch+1, nepochs))
                 print('=================================')
-            # self.Optimizer.step(closure)
-            closure()
-            self.Optimizer.step()
-            # if self.verbose:
-            #     self.print_grad()
-            #     self.print_parameters()
-            #     print()
+                print('loss = ', self.loss.item())
+                # self.print_grad()
+                self.print_parameters(Model.parameters())
+                print(Model.observations.detach().numpy())
             if self.loss.item() < tol: break
 
 
@@ -82,6 +80,11 @@ class InverseProblem:
         # self.Model = Model
 
         return theta_opt
+
+
+    def print_parameters(self, parameters):
+        print("Parameters: ", [p.item() for p in parameters])
+            
 
 
 
