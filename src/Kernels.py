@@ -76,15 +76,16 @@ class SumOfExponentialsKernel(AbstractKernel):
 
 
     def compute_coefficients(self, h, gamma=1):
-        lmbda = self.Exponents
-        theta = lmbda / (1 + lmbda)
-        lgh   = lmbda*gamma*h
-        den   = (1-theta)*(1 + lgh) + theta * h/2 * (1 + 2*lgh)
+        lmbda   = self.Exponents
+        theta   = lmbda / (1 + lmbda)
+        self.wk = self.Weights * (1-theta)
+        lgh     = lmbda*gamma*h
+        den     = (1-theta)*(1 + lgh) + theta * h/2 * (1 + 2*lgh)
         self.coef_ak = (1 + 2*lgh) / den
         self.coef_bk = ( (1-theta)*(1+lgh) - theta * h/2 ) / den
         self.coef_ck = 1 / den
-        self.coef_a  = ( self.Weights * self.coef_ak ).sum()
-        self.coef_c  = ( self.Weights * self.coef_ck ).sum()
+        self.coef_a  = ( self.wk * self.coef_ak ).sum()
+        self.coef_c  = ( self.wk * self.coef_ck ).sum()
         self.h = h
 
 
@@ -98,7 +99,7 @@ class SumOfExponentialsKernel(AbstractKernel):
         h = self.h
 
         self.modes   = self.coef_bk * self.modes + 0.5*h*self.coef_ck*self.Fn + 0.5*h*self.coef_ak*Fn1
-        self.history = ( self.Weights * self.coef_bk * self.modes ).sum(dim=-1)
+        self.history = ( self.wk * self.coef_bk * self.modes ).sum(dim=-1)
         self.Fn[:]   = Fn1
 
         return self.history #.detach().numpy()
@@ -155,19 +156,20 @@ class SumOfExponentialsKernel_Torch(nn.Module):
             h = self.h
         else:
             self.h = h
-        lmbda = self.Exponents
-        theta = lmbda / (1 + lmbda)
-        lgh   = lmbda*gamma*h
-        den   = (1-theta)*(1 + lgh) + theta * h/2 * (1 + 2*lgh)
+        lmbda   = self.Exponents.abs()
+        theta   = lmbda / (1 + lmbda)
+        self.wk = self.Weights.abs() * (1-theta)
+        lgh     = lmbda*gamma*h
+        den     = (1-theta)*(1 + lgh) + theta * h/2 * (1 + 2*lgh)
         self.coef_ak = (1 + 2*lgh) / den
         self.coef_bk = ( (1-theta)*(1+lgh) - theta * h/2 ) / den
         self.coef_ck = 1 / den
-        self.coef_a  = ( self.Weights * self.coef_ak ).sum()
-        self.coef_c  = ( self.Weights * self.coef_ck ).sum()
+        self.coef_a  = ( self.wk * self.coef_ak ).sum()
+        self.coef_c  = ( self.wk * self.coef_ck ).sum()
 
 
-    def init(self):
-        self.compute_coefficients()
+    def init(self, h=None, gamma=1):
+        self.compute_coefficients(h, gamma)
         self.modes = None
         
 
@@ -182,7 +184,7 @@ class SumOfExponentialsKernel_Torch(nn.Module):
         h = self.h
 
         self.modes   = self.coef_bk * self.modes + 0.5*h*self.coef_ck*self.F_old + 0.5*h*self.coef_ak*F_new
-        self.history = ( self.Weights * self.coef_bk * self.modes ).sum(dim=-1)
+        self.history = ( self.wk * self.coef_bk * self.modes ).sum(dim=-1)
         self.F_old   = 1.*F_new
 
         return self.history

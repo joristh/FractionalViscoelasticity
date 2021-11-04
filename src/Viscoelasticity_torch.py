@@ -10,6 +10,8 @@ import numpy as np
 import torch
 from torch import nn
 
+import dill as pickle
+
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 
@@ -29,7 +31,7 @@ class ViscoelasticityProblem(torch_fenics.FEniCSModule):
         super().__init__()
 
         self.verbose      = kwargs.get("verbose", False)
-        self.fg_export    = kwargs.get("export", None)
+        self.fg_export_vtk= kwargs.get("export_vtk", None)
         self.inputfolder  = kwargs.get("inputfolder", "./")
         self.outputfolder = kwargs.get("outputfolder", "./")
         self.fg_viscosity = kwargs.get("viscosity", False)
@@ -87,19 +89,7 @@ class ViscoelasticityProblem(torch_fenics.FEniCSModule):
 
 
         ### Source terms
-
-        ### 1) body force
-        body_force = kwargs.get("body_force", Constant((0.,)*self.ndim) )
-        body_force_form = inner(body_force, v_)*dx
-        self.f_vol = assemble(body_force_form)
-        self.forces_form = self.f_vol
-
-        ### 2) loading
-        if self.NeumannBC:
-            self.loading = kwargs.get("loading", Constant((0.,)*self.ndim) )
-            self.loading_form  = inner(self.loading, v_)*self.ds_Neumann
-            self.forces_form   = body_force_form + self.loading_form
-
+        self.set_load(**kwargs)
         
 
 
@@ -124,6 +114,24 @@ class ViscoelasticityProblem(torch_fenics.FEniCSModule):
         observer = kwargs.get("observer", None)
         if observer:
             self.observer = observer(Model=self)
+
+
+
+    ### Set the source terms
+    def set_load(self, **kwargs):
+        u_, v_  = TrialFunction(self.V), TestFunction(self.V)
+
+        ### 1) body force
+        body_force = kwargs.get("body_force", Constant((0.,)*self.ndim) )
+        body_force_form = inner(body_force, v_)*dx
+        self.f_vol = assemble(body_force_form)
+        self.forces_form = self.f_vol
+
+        ### 2) loading
+        if self.NeumannBC:
+            self.loading = kwargs.get("loading", Constant((0.,)*self.ndim) )
+            self.loading_form  = inner(self.loading, v_)*self.ds_Neumann
+            self.forces_form   = body_force_form + self.loading_form
 
 
 
@@ -227,8 +235,6 @@ class ViscoelasticityProblem(torch_fenics.FEniCSModule):
         else:
             torch.set_grad_enabled(False)
 
-        self.fg_Adjoint = False
-
         self.u_func = Function(self.V, name="displacement")
         self.v_func = Function(self.V, name="velocity")
         self.a_func = Function(self.V, name="acceleration")
@@ -243,9 +249,10 @@ class ViscoelasticityProblem(torch_fenics.FEniCSModule):
         self.history = torch.zeros_like(self.u, requires_grad=True)
         self.w = torch.zeros_like(self.u)
 
-        self.kernel.init()
+        if self.fg_viscosity:
+            self.kernel.init(h=self.dt)
 
-        self.observations = []
+        self.observations   = []
         self.Energy_elastic = np.array([])
         self.Energy_kinetic = np.array([])
 
@@ -257,7 +264,6 @@ class ViscoelasticityProblem(torch_fenics.FEniCSModule):
 
 
     def update_state(self):
-
         h  = self.dt
         un = self.u
         vn = self.v
@@ -278,28 +284,33 @@ class ViscoelasticityProblem(torch_fenics.FEniCSModule):
             ### auxilary variable is not backpropagated, so the content is mutable
             self.w[:] = ( self.kernel.Weights * self.kernel.modes ).sum(dim=-1)
 
-
-
-    def export_state(self, time=0):
-        if self.fg_export:
-            if not hasattr(self, "file_results"):
-                if self.fg_Adjoint:
-                    filename = "results"
-                else:
-                    filename = "results_detached"
-                self.file_results = XDMFFile(self.outputfolder+filename+".xdmf")
-                self.file_results.parameters["flush_output"] = True
-                self.file_results.parameters["functions_share_mesh"] = True
-
-
+        ### Update FEniCS state functions (if needed)
+        if (not self.fg_inverse) or self.fg_export_vtk:
             self.u_func.vector()[:] = self.u.detach().numpy()
             self.v_func.vector()[:] = self.v.detach().numpy()
             self.a_func.vector()[:] = self.a.detach().numpy()
             self.p_func.vector()[:] = self.f_surf
-
             if self.fg_viscosity:
                 self.w_func.vector()[:] = self.w.detach().numpy()
                 self.H_func.vector()[:] = self.history.detach().numpy()
+
+
+
+    def export_state(self, time=0):
+        if self.fg_export_vtk:
+            if not hasattr(self, "file_results"):
+                filename = "results"
+                self.file_results = XDMFFile(self.outputfolder+filename+".xdmf")
+                self.file_results.parameters["flush_output"] = True
+                self.file_results.parameters["functions_share_mesh"] = True
+            
+            # self.u_func.vector()[:] = self.u.detach().numpy()
+            # self.v_func.vector()[:] = self.v.detach().numpy()
+            # self.a_func.vector()[:] = self.a.detach().numpy()
+            # self.p_func.vector()[:] = self.f_surf
+            # if self.fg_viscosity:
+            #     self.w_func.vector()[:] = self.w.detach().numpy()
+            #     self.H_func.vector()[:] = self.history.detach().numpy()
 
             self.file_results.write(self.u_func, time)
             self.file_results.write(self.v_func, time)
@@ -343,10 +354,13 @@ class ViscoelasticityProblem(torch_fenics.FEniCSModule):
     ==================================================================================================================
     """
     
-    def forward_solve(self, parameters=None, record=False, annotate=True, objective=None):
+    def forward_solve(self, parameters=None, loading=None):
 
         if parameters is not None:
             self.kernel.update_parameters(parameters)
+
+        if loading is not None:
+            self.set_load(loading=loading)
 
         self.initialize_state()
 
@@ -400,11 +414,11 @@ class ViscoelasticityProblem(torch_fenics.FEniCSModule):
         coef1  = h**2 * beta
         lhs    = self.m(u_, v_) + coef1 * self.k(u_,v_)
 
-        # if self.fg_viscosity:
-        u_star_visc = 0.5*h*coef_c * vn + 0.5*h*coef_a * (vn + h*(1-gamma) * an) + Hn
-        rhs   = rhs - self.c(u_star_visc, v_)
-        coef2 = (0.5 * h**2 * gamma) * coef_a
-        lhs = lhs + coef2 * self.c(u_,v_)
+        if self.fg_viscosity:
+            u_star_visc = 0.5*h*coef_c * vn + 0.5*h*coef_a * (vn + h*(1-gamma) * an) + Hn
+            rhs   = rhs - self.c(u_star_visc, v_)
+            coef2 = (0.5 * h**2 * gamma) * coef_a
+            lhs = lhs + coef2 * self.c(u_,v_)
 
         A, b = fenics_adjoint.assemble_system(lhs, rhs, bcs=self.bc_a)
 
@@ -421,6 +435,35 @@ class ViscoelasticityProblem(torch_fenics.FEniCSModule):
 
     def input_templates(self):
         return ( Function(self.V), Function(self.V), Function(self.V), Function(self.V), Constant(0.), Constant(0.) )
+
+
+    # """
+    # ==================================================================================================================
+    # Save and load the object
+    # ==================================================================================================================
+    # """
+
+    # def save(self, filename): ### filename = full/relative path w/o extension
+    #     if not filename.endswith('.pkl'):
+    #         filename = filename + '.pkl'
+
+    #     with open(filename, 'wb') as filehandler:
+    #         data = [self.observations, self.Energy_elastic, self.Energy_kinetic]
+    #         pickle.dump(data, filehandler)
+
+    #     if self.verbose:
+    #         print("Object data is saved to {0:s}".format(filename))
+
+
+    # def load(self, filename):
+    #     if not filename.endswith('.pkl'):
+    #         filename = filename + '.pkl'
+
+    #     with open(filename, 'rb') as filehandler:
+    #         data = pickle.load(filehandler)
+    #         self.observations, self.Energy_elastic, self.Energy_kinetic = data
+
+
 
 
 """

@@ -27,7 +27,7 @@ class InverseProblem:
 
     def calibrate(self, Model, objective, initial_guess=None, **kwargs):
         verbose = kwargs.get("verbose", False)
-        lr      = kwargs.get("lr",  1.)
+        lr      = kwargs.get("lr",  0.5)
         tol     = kwargs.get("tol", 1.e-3)
         reg     = kwargs.get("regularization", None)
 
@@ -36,14 +36,19 @@ class InverseProblem:
 
         if initial_guess is not None:
             for i, p in enumerate(Model.parameters()):
-                p.data[:] = initial_guess[i]
+                p.data[:] = torch.tensor(initial_guess[i])
             
 
         optimizer = kwargs.get("optimizer", torch.optim.SGD)
         if optimizer is torch.optim.SGD:
             self.Optimizer = optimizer(Model.parameters(), lr=lr)
         elif optimizer is torch.optim.LBFGS:
-            self.Optimizer = optimizer(Model.parameters(), lr=lr, line_search_fn='strong_wolfe')
+            self.Optimizer = optimizer(Model.parameters(),
+                                lr=lr,
+                                line_search_fn='strong_wolfe',
+                                # tolerance_grad=tol,
+                                # tolerance_change=tol
+                                )
 
 
         def closure():
@@ -54,7 +59,11 @@ class InverseProblem:
             self.loss = objective(obs)
             if reg: self.loss = self.loss + reg(theta)
             self.loss.backward()
+            print('loss = ', self.loss.item())
             return self.loss
+
+
+        self.print_parameters(Model.parameters())
 
         nepochs = kwargs.get("nepochs", 10)
         for epoch in range(nepochs):
@@ -66,8 +75,8 @@ class InverseProblem:
                 print('=================================')
                 print('loss = ', self.loss.item())
                 # self.print_grad()
-                self.print_parameters(Model.parameters())
-                print(Model.observations.detach().numpy())
+                # self.print_parameters(Model.parameters())
+                # print(Model.observations.detach().numpy())
             if self.loss.item() < tol: break
 
 
@@ -79,11 +88,16 @@ class InverseProblem:
         # self.final_objective    = self.objective(Model, theta, data)
         # self.Model = Model
 
+        Model.fg_inverse = False
+
         return theta_opt
 
 
     def print_parameters(self, parameters):
-        print("Parameters: ", [p.item() for p in parameters])
+        # print("Parameters: ", [p.tolist() for p in parameters])
+        weights, exponents = [p for p in parameters]
+        print("Weights:   ", weights.tolist())
+        print("Exponents: ", exponents.tolist())
             
 
 
