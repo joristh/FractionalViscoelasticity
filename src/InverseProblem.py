@@ -43,12 +43,10 @@ class InverseProblem:
         if optimizer is torch.optim.SGD:
             self.Optimizer = optimizer(Model.parameters(), lr=lr)
         elif optimizer is torch.optim.LBFGS:
-            self.Optimizer = optimizer(Model.parameters(),
-                                lr=lr,
-                                line_search_fn='strong_wolfe',
+            self.Optimizer = optimizer(Model.parameters(), lr=lr, line_search_fn='strong_wolfe')
                                 # tolerance_grad=tol,
                                 # tolerance_change=tol
-                                )
+                                # )
 
 
         def closure():

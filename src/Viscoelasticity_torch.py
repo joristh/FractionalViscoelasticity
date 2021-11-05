@@ -364,9 +364,7 @@ class ViscoelasticityProblem(torch_fenics.FEniCSModule):
 
         self.initialize_state()
 
-        pbar = tqdm(total=self.time_steps.size)
-
-        for (i, t) in enumerate(self.time_steps):
+        for (i, t) in tqdm(enumerate(self.time_steps), total=self.time_steps.size):
 
             self.update_forces(t)
             
@@ -377,9 +375,7 @@ class ViscoelasticityProblem(torch_fenics.FEniCSModule):
 
             self.observe()
             self.user_defined_routines(t)
-
-            pbar.update(1)
-        del(pbar)
+            
 
         self.observations = torch.stack(self.observations)
         return self.observations

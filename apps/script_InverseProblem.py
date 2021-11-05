@@ -3,6 +3,8 @@ from config import *
 
 fg_export = True    ### write results on the disk (True) or only solve (False)
 
+noise_level = 2 ### [%]
+
 
 """
 ==================================================================================================================
@@ -32,7 +34,8 @@ config['nTimeSteps'] = data.size
 config['FinalTime']  = data.size * (T / nsteps)
 
 ### Noisy data
-noise = np.random.normal(loc=0, scale=1.e-2*np.abs(data).max(), size=data.shape) ### additive noise
+scale = (noise_level/100) * np.abs(data).max()
+noise = np.random.normal(loc=0, scale=scale, size=data.shape) ### additive noise
 data  = data + noise
 np.savetxt(config['outputfolder']+"data_tip_displacement_noisy.csv", data)
 

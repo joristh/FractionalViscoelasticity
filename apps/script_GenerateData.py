@@ -4,7 +4,8 @@
 from matplotlib.pyplot import figure
 from config import *
 
-fg_export = True  ### write results on the disk (True) or only solve (False)
+fg_export = False  ### write results on the disk (True) or only solve (False)
+config['export_vtk'] = True
 
 
 
@@ -43,14 +44,14 @@ def kernel_exp(t):
     k = RA.appx_ker(t)
     return k
 
-t = np.logspace(-2, 3, 100)
+# t = np.logspace(-2, 3, 100)
 
-plt.figure()
-plt.plot(t, kernel_exp(t), "r-", label="sum-of-exponentials")
-plt.plot(t, kernel(t), "b--", label="fractional")
-plt.xscale('log')
-plt.legend()
-plt.show()
+# plt.figure()
+# plt.plot(t, kernel_exp(t), "r-", label="sum-of-exponentials")
+# plt.plot(t, kernel(t), "b--", label="fractional")
+# plt.xscale('log')
+# plt.legend()
+# plt.show()
 
 
 

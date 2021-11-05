@@ -36,10 +36,10 @@ def NeumannBoundary(x, on_boundary):
     return near(x[0], 1.) and on_boundary
 
 ### loading (depending on t)
-magnitude = 1.
+magnitude   = 1.
 cutoff_time = 4/5
 load_Bending   = Expression(("0", "t <= tc ? p0*t/tc : 0", "0"), t=0, tc=cutoff_time, p0=magnitude, degree=0) ### Bending
-load_Extension = Expression(("0", "0", "t <= tc ? p0*t/tc : 0"), t=0, tc=cutoff_time, p0=magnitude, degree=0) ### Extension
+load_Extension = Expression(("t <= tc ? p0*t/tc : 0", "0", "0"), t=0, tc=cutoff_time, p0=magnitude, degree=0) ### Extension
 
 
 config = {
@@ -49,7 +49,7 @@ config = {
     'export_vtk'        :   False,
 
     'FinalTime'         :   4,
-    'nTimeSteps'        :   40,
+    'nTimeSteps'        :   100,
 
     'mesh'              :   mesh,
     'DirichletBoundary' :   DirichletBoundary,
