@@ -31,7 +31,7 @@ mesh = BoxMesh(Point(0., 0., 0.), Point(1., 0.1, 0.04), 60, 10, 5)
 def DirichletBoundary(x, on_boundary):
     return near(x[0], 0.) and on_boundary
 
-### Sub domain for rotation at right end
+### Sub domain for excitation at right end
 def NeumannBoundary(x, on_boundary):
     return near(x[0], 1.) and on_boundary
 
@@ -69,11 +69,11 @@ config = {
 
     ### Measurements
     'observer'          :   TipDisplacementObserver,
-    'noise_level'       :   4, ### [%]
+    'noise_level'       :   1, ### [%]
 
     ### Optimization
     'optimizer'         :   torch.optim.LBFGS, ### E.g., torch.optim.SGD, torch.optim.LBFGS, ...
-    'nepochs'           :   10,
+    'nepochs'           :   5,
     'tol'               :   1.e-4,
     'regularization'    :   None,  ### your regularization function, e.g., "reg", or None/False for no regularization
     'initial_guess'     :   None,  ### initial guess for parameters calibration: (weights, exponents)

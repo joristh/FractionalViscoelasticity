@@ -13,7 +13,7 @@ Initial guess
 """
 
 alpha = 0.5
-RA = RationalApproximation(alpha=alpha)
+RA = RationalApproximation(alpha=alpha, tol=1.e-10)
 config['nModes'] = RA.nModes
 config['initial_guess'] = [RA.c, RA.d]
 

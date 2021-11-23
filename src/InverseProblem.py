@@ -79,7 +79,7 @@ class InverseProblem:
         nepochs = kwargs.get("nepochs", 10)
         for epoch in range(nepochs):
             self.Optimizer.step(closure)
-            g_norm = get_grad().norm()
+            g_norm = get_grad().norm(p=float('inf'))
 
             ### convergence monitor
             if verbose:
