@@ -3,7 +3,7 @@ from config import *
 
 fg_export = True    ### write results on the disk (True) or only solve (False)
 
-noise_level = 2 ### [%]
+noise_level = config['noise_level'] ### [%]
 
 
 """
@@ -75,7 +75,6 @@ print("Final loss         :", IP.loss)
 
 
 
-
 """
 ==================================================================================================================
 Forward run of the inferred model
@@ -94,7 +93,7 @@ model.set_time_stepper(nTimeSteps=nsteps, FinalTime=T)
 model.forward_solve()
 
 if fg_export: ### write data to file
-    save_data(config['outputfolder']+"inferred_model", model, other=[theta_opt])
+    save_data(config['outputfolder']+"inferred_model", model, other=[theta_opt, IP.convergence_history])
 
 
 """

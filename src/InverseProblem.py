@@ -37,8 +37,11 @@ class InverseProblem:
         if initial_guess is not None:
             for i, p in enumerate(Model.parameters()):
                 p.data[:] = torch.tensor(initial_guess[i])
-            
 
+        ### print initial parameters
+        self.print_parameters(Model.parameters())
+
+        ### Optimizer
         optimizer = kwargs.get("optimizer", torch.optim.SGD)
         if optimizer is torch.optim.SGD:
             self.Optimizer = optimizer(Model.parameters(), lr=lr)
@@ -47,6 +50,13 @@ class InverseProblem:
                                 # tolerance_grad=tol,
                                 # tolerance_change=tol
                                 # )
+
+        ### Convergence history
+        self.convergence_history = {
+            'loss'      :   [],
+            'grad'      :   [],
+            'loss_all'  :   [],  ### values including internal BFGS and line search iterations
+        }
 
 
         def closure():
@@ -58,37 +68,40 @@ class InverseProblem:
             if reg: self.loss = self.loss + reg(theta)
             self.loss.backward()
             print('loss = ', self.loss.item())
+            self.convergence_history['loss_all'].append(self.loss.item())
             return self.loss
 
+        def get_grad():
+            return torch.cat([p.grad for p in Model.parameters()])
 
-        self.print_parameters(Model.parameters())
 
+        ### Optimization loop
         nepochs = kwargs.get("nepochs", 10)
         for epoch in range(nepochs):
             self.Optimizer.step(closure)
+            g_norm = get_grad().norm()
+
+            ### convergence monitor
             if verbose:
                 print()
                 print('=================================')
                 print('-> Epoch {0:d}/{1:d}'.format(epoch+1, nepochs))
                 print('=================================')
                 print('loss = ', self.loss.item())
-                # self.print_grad()
-                # self.print_parameters(Model.parameters())
-                # print(Model.observations.detach().numpy())
-            if self.loss.item() < tol: break
+                print('grad = ', g_norm.item())
 
+            ### store history
+            self.convergence_history['loss'].append(self.loss.item())
+            self.convergence_history['grad'].append(g_norm.item())
 
+            ### stopping criterion
+            if g_norm < tol: break
+
+        ### ending
         theta_opt = parameters_to_vector(Model.parameters())
-
-        # Model.ViscousTerm.update_parameters(theta_opt)
-
-        # self.optimal_parameters = theta_opt
-        # self.final_objective    = self.objective(Model, theta, data)
-        # self.Model = Model
-
         Model.fg_inverse = False
-
         return theta_opt
+
 
 
     def print_parameters(self, parameters):

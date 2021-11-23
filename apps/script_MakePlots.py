@@ -10,9 +10,9 @@ tikz_folder = config['outputfolder']
 Load data
 ==================================================================================================================
 """
-tip_init, EnergyElastic_init, EnergyKinetic_init, theta_init = load_data(config['inputfolder']+"initial_model")
-tip_pred, EnergyElastic_pred, EnergyKinetic_pred, theta_pred = load_data(config['inputfolder']+"inferred_model")
-tip_true, EnergyElastic_true, EnergyKinetic_true, theta_true = load_data(config['inputfolder']+"target_model")
+tip_init, EnergyElastic_init, EnergyKinetic_init, theta_init                        = load_data(config['inputfolder']+"initial_model")
+tip_pred, EnergyElastic_pred, EnergyKinetic_pred, theta_pred, convergence_history   = load_data(config['inputfolder']+"inferred_model")
+tip_true, EnergyElastic_true, EnergyKinetic_true, theta_true                        = load_data(config['inputfolder']+"target_model")
 EnergyTotal_pred = EnergyElastic_pred + EnergyKinetic_pred
 EnergyTotal_true = EnergyElastic_true + EnergyKinetic_true
 
@@ -122,11 +122,11 @@ with torch.no_grad():
 
     plt.plot(time_steps, EnergyElastic_pred, "-", color='red', label="Elastic energy (predict)", **plot_settings)
     plt.plot(time_steps, EnergyKinetic_pred, "-", color='orange', label="Kinetic energy (predict)", **plot_settings)
-    plt.plot(time_steps, EnergyTotal_pred, "-", color='brown', label="Total energy (predict)")
+    # plt.plot(time_steps, EnergyTotal_pred, "-", color='brown', label="Total energy (predict)")
 
     plt.plot(time_steps, EnergyElastic_true, "--", color='blue', label="Elastic energy (truth)", **plot_settings)
     plt.plot(time_steps, EnergyKinetic_true, "--", color='cyan', label="Kinetic energy (truth)", **plot_settings)
-    plt.plot(time_steps, EnergyTotal_true, "--", color='magenta', label="Total energy (truth)", **plot_settings)
+    # plt.plot(time_steps, EnergyTotal_true, "--", color='magenta', label="Total energy (truth)", **plot_settings)
 
     plt.grid(True, which='both')
     plt.ylabel(r"Energy")
