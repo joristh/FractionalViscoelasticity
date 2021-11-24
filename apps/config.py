@@ -66,6 +66,7 @@ config = {
     'nModes'            :   None,
     'weights'           :   None,
     'exponents'         :   None,
+    'split'             :   False, ### split kernels into hydrostatic and deviatoric parts
 
     ### Measurements
     'observer'          :   TipDisplacementObserver,
