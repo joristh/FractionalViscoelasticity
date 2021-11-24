@@ -54,7 +54,7 @@ config = {
     'mesh'              :   mesh,
     'DirichletBoundary' :   DirichletBoundary,
     'NeumannBoundary'   :   NeumannBoundary,
-    'loading'           :   load_Bending, ### default loading (mainly for initialization)
+    'loading'           :   [load_Bending, load_Extension], ###  load_Bending, [load_Bending, load_Extension] ### default loading (mainly for initialization)
 
     ### Material parameters
     'Young'             :   1.e3,

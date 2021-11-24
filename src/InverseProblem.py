@@ -59,6 +59,17 @@ class InverseProblem:
         }
 
 
+        ### Loading type
+        loading = kwargs.get("loading", None)
+        if hasattr(loading, '__iter__'):
+            def forward():
+                for loading in loading:
+                    Model.forward_solve(loading=loading)
+        else:
+            def forward():
+                Model.forward_solve()
+
+
         def closure():
             self.Optimizer.zero_grad()
             theta = parameters_to_vector(Model.parameters())
@@ -73,6 +84,7 @@ class InverseProblem:
 
         def get_grad():
             return torch.cat([p.grad for p in Model.parameters()])
+
 
 
         ### Optimization loop
