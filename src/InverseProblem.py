@@ -26,10 +26,11 @@ class InverseProblem:
 
 
     def calibrate(self, Model, objective, initial_guess=None, **kwargs):
-        verbose = kwargs.get("verbose", False)
-        lr      = kwargs.get("lr",  0.5)
-        tol     = kwargs.get("tol", 1.e-3)
-        reg     = kwargs.get("regularization", None)
+        verbose  = kwargs.get("verbose", False)
+        max_iter = kwargs.get("max_iter", 20)
+        lr       = kwargs.get("lr",  1.)
+        tol      = kwargs.get("tol", 1.e-3)
+        reg      = kwargs.get("regularization", None)
 
         Model.fg_inverse = True
         Model.fg_export  = False
@@ -44,12 +45,30 @@ class InverseProblem:
         ### Optimizer
         optimizer = kwargs.get("optimizer", torch.optim.SGD)
         if optimizer is torch.optim.SGD:
-            self.Optimizer = optimizer(Model.parameters(), lr=lr)
+            if verbose:
+                print()
+                print('=================================')
+                print('        Gradient descent         ')
+                print('=================================')
+                print()
+            nepochs = max_iter
+            optimization_settings = {
+                'lr'    :   lr,
+            }
         elif optimizer is torch.optim.LBFGS:
-            self.Optimizer = optimizer(Model.parameters(), lr=lr, line_search_fn='strong_wolfe')
-                                # tolerance_grad=tol,
-                                # tolerance_change=tol
-                                # )
+            if verbose:
+                print()
+                print('=================================')
+                print('             LBFGS               ')
+                print('=================================')
+                print()
+            nepochs = kwargs.get("nepochs", 1)
+            optimization_settings = {
+                'lr'                :   lr,
+                'line_search_fn'    :   'strong_wolfe',
+                'max_iter'          :   max_iter,
+            }       
+        self.Optimizer = optimizer(Model.parameters(), **optimization_settings)
 
         ### Convergence history
         self.convergence_history = {
@@ -76,7 +95,6 @@ class InverseProblem:
 
 
         ### Optimization loop
-        nepochs = kwargs.get("nepochs", 10)
         for epoch in range(nepochs):
             self.Optimizer.step(closure)
             g_norm = get_grad().norm(p=float('inf'))
@@ -89,6 +107,9 @@ class InverseProblem:
                 print('=================================')
                 print('loss = ', self.loss.item())
                 print('grad = ', g_norm.item())
+                print('=================================')
+                print()
+                print()
 
             ### store history
             self.convergence_history['loss'].append(self.loss.item())

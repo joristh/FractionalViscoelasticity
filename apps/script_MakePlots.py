@@ -82,7 +82,7 @@ figure_settings = {
 }
 
 plot_settings = {
-    'markersize'   :   1.3,
+    'markersize'   :   2,
 }
 
 legend_settings = {

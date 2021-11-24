@@ -72,8 +72,8 @@ config = {
     'noise_level'       :   1, ### [%]
 
     ### Optimization
-    'optimizer'         :   torch.optim.LBFGS, ### E.g., torch.optim.SGD, torch.optim.LBFGS, ...
-    'nepochs'           :   5,
+    'optimizer'         :   torch.optim.SGD, ### E.g., torch.optim.SGD, torch.optim.LBFGS, ...
+    'max_iter'          :   40,
     'tol'               :   1.e-4,
     'regularization'    :   None,  ### your regularization function, e.g., "reg", or None/False for no regularization
     'initial_guess'     :   None,  ### initial guess for parameters calibration: (weights, exponents)
