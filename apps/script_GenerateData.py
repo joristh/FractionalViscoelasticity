@@ -66,14 +66,28 @@ print("================================")
 print("       FORWARD RUN")
 print("================================")
 
-model = ViscoelasticityProblem(**config)
+Model = ViscoelasticityProblem(**config)
 
-model.forward_solve()
+loading = config.get("loading", None)
+if hasattr(loading, '__iter__'): ### multiple loadings case
+    def Forward():
+        obs = torch.tensor([])
+        for loading_instance in loading:
+            Model.forward_solve(loading=loading_instance)
+            obs = torch.cat([obs, Model.observations])
+        return obs.numpy()
+else:
+    def Forward():
+        Model.forward_solve()
+        obs = Model.observations
+        return obs.numpy()
+
+data = Forward()
 
 if fg_export: ### write data to file
-    data = model.observations.numpy()
+    # data = model.observations.numpy()
     np.savetxt(config['outputfolder']+"data_tip_displacement.csv", data)
-    save_data(config['outputfolder']+"target_model", model, other=[[config['weights'], config['exponents']]])
+    save_data(config['outputfolder']+"target_model", Model, other=[[config['weights'], config['exponents']]])
 
 
 """
@@ -85,14 +99,14 @@ Display
 with torch.no_grad():
     plt.subplot(1,2,1)
     plt.title('Tip displacement')
-    plt.plot(model.time_steps, model.observations)
+    plt.plot(Model.time_steps, Model.observations)
 
-    if not model.fg_inverse:
+    if not Model.fg_inverse:
         plt.subplot(1,2,2)
         plt.title('Energies')
-        plt.plot(model.time_steps, model.Energy_elastic, "o-", color='blue', label="Elastic energy")
-        plt.plot(model.time_steps, model.Energy_kinetic, "o-", color='orange', label="Kinetic energy")
-        plt.plot(model.time_steps, model.Energy_elastic+model.Energy_kinetic, "o-", color='red', label="Total energy")
+        plt.plot(Model.time_steps, Model.Energy_elastic, "o-", color='blue', label="Elastic energy")
+        plt.plot(Model.time_steps, Model.Energy_kinetic, "o-", color='orange', label="Kinetic energy")
+        plt.plot(Model.time_steps, Model.Energy_elastic+Model.Energy_kinetic, "o-", color='red', label="Total energy")
         plt.grid(True, which='both')
         plt.legend()
 

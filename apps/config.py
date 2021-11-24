@@ -54,7 +54,7 @@ config = {
     'mesh'              :   mesh,
     'DirichletBoundary' :   DirichletBoundary,
     'NeumannBoundary'   :   NeumannBoundary,
-    'loading'           :   load_Bending, ### default loading (mainly for initialization)
+    'loading'           :   [load_Bending, load_Extension], ###  load_Bending, [load_Bending, load_Extension] ### default loading (mainly for initialization)
 
     ### Material parameters
     'Young'             :   1.e3,
@@ -66,6 +66,7 @@ config = {
     'nModes'            :   None,
     'weights'           :   None,
     'exponents'         :   None,
+    'split'             :   False, ### split kernels into hydrostatic and deviatoric parts
 
     ### Measurements
     'observer'          :   TipDisplacementObserver,

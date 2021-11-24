@@ -75,29 +75,53 @@ class InverseProblem:
             'loss'      :   [],
             'grad'      :   [],
             'loss_all'  :   [],  ### values including internal BFGS and line search iterations
+            'grad_all'  :   [],  ### same for the grad norm
         }
 
 
-        def closure():
-            self.Optimizer.zero_grad()
-            theta = parameters_to_vector(Model.parameters())
-            Model.forward_solve()
-            obs = Model.observations
-            self.loss = objective(obs)
-            if reg: self.loss = self.loss + reg(theta)
-            self.loss.backward()
-            print('loss = ', self.loss.item())
-            self.convergence_history['loss_all'].append(self.loss.item())
-            return self.loss
+        ### Loading type
+        loading = kwargs.get("loading", None)
+        if hasattr(loading, '__iter__'): ### multiple loadings case
+            def Forward():
+                obs = torch.tensor([])
+                for loading_instance in loading:
+                    Model.forward_solve(loading=loading_instance)
+                    obs = torch.cat([obs, Model.observations])
+                return obs
+        else:
+            def Forward():
+                Model.forward_solve()
+                obs = Model.observations
+                return obs
+
 
         def get_grad():
             return torch.cat([p.grad for p in Model.parameters()])
 
 
+        def closure():
+            self.Optimizer.zero_grad()
+            theta     = parameters_to_vector(Model.parameters())
+            obs       = Forward()
+            self.loss = objective(obs)
+            if reg: ### regularization term
+                self.loss = self.loss + reg(theta)
+            self.loss.backward()
+            self.grad = get_grad()
+            grad_norm = self.grad.norm(p=float('inf'))
+            print('loss = ', self.loss.item())
+            print('grad = ', grad_norm.item())
+            self.convergence_history['loss_all'].append(self.loss.item())
+            self.convergence_history['grad_all'].append(grad_norm.item())
+            return self.loss
+
+
+
+
         ### Optimization loop
         for epoch in range(nepochs):
             self.Optimizer.step(closure)
-            g_norm = get_grad().norm(p=float('inf'))
+            grad_norm = self.grad.norm(p=float('inf'))
 
             ### convergence monitor
             if verbose:
@@ -106,17 +130,17 @@ class InverseProblem:
                 print('-> Epoch {0:d}/{1:d}'.format(epoch+1, nepochs))
                 print('=================================')
                 print('loss = ', self.loss.item())
-                print('grad = ', g_norm.item())
+                print('grad = ', grad_norm.item())
                 print('=================================')
                 print()
                 print()
 
             ### store history
             self.convergence_history['loss'].append(self.loss.item())
-            self.convergence_history['grad'].append(g_norm.item())
+            self.convergence_history['grad'].append(grad_norm.item())
 
             ### stopping criterion
-            if g_norm < tol: break
+            if grad_norm < tol: break
 
         ### ending
         theta_opt = parameters_to_vector(Model.parameters())

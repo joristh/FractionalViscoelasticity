@@ -54,58 +54,31 @@ class ViscoelasticityProblem(torch_fenics.FEniCSModule):
         ### Mesh
         mesh = self.set_mesh(**kwargs)
 
-
-
+        ### FE space
         deg_u = kwargs.get("degree", 1)
         V = VectorFunctionSpace(mesh, "CG", deg_u)
         self.V = V
+        u_, v_ = TrialFunction(V), TestFunction(V)
 
-        # u  = Function(V, name="displacement")
-        # v  = Function(V, name="velocity")
-        # a  = Function(V, name="acceleration")
-        # a_new = Function(V, name="new acceleration")
-        # inc= Function(V, name="Newton increment")
-        # w  = Function(V, name="axilary variable")
-        # w_tr  = Function(V, name="axilary variable (trace)")
-        # w_dev = Function(V, name="axilary variable (deviator)")
-        
-        # self.u, self.v, self.a = u, v, a
-        # self.a_new = a_new
-        # self.w = w
-
-
+        ### BCs
         self.set_boundary_condition(**kwargs)
-
-
-        ### Assembling the FE matrices
-        u_, v_  = TrialFunction(V), TestFunction(V)
-        # self.M_form = rho * inner(u_, v_)*dx
-        # self.K_form = inner(self.sigma(self.eps(u_)), self.eps(v_))*dx
-        # self.M = assemble(self.M_form, annotate=True)
-        # self.K = assemble(self.K_form, annotate=True)
-
-        # self.fg_viscosity = kwargs.get("viscosity", False)
-        # self.K_visc = self.K
-
-
+        
         ### Source terms
         self.set_load(**kwargs)
         
-
-
         ### Time scheme
         self.Newmark = Newmark()
         self.set_time_stepper(**kwargs)
 
+        ### Integral kernels
+        fg_split_kernels = kwargs.get("split", False)
+        if fg_split_kernels: ### two kernels
+            self.kernel = SumOfExponentialsKernel_Torch(**kwargs)
+            self.kernel.compute_coefficients(self.dt)
+        else: ### one kernel
+            self.kernel = SumOfExponentialsKernel_Torch(**kwargs)
+            self.kernel.compute_coefficients(self.dt)
 
-        ### Kernel
-        self.kernel = SumOfExponentialsKernel_Torch(**kwargs)
-        self.kernel.compute_coefficients(self.dt)
-
-
-        ### History term
-        # self.history = Vector(self.u.vector())
-        # self.history[:] = self.kernel.update_history(self.v.vector().get_local()).detach().numpy()
 
         ### Linear solver
         self.LinSolver = set_linSolver()
