@@ -92,7 +92,7 @@ legend_settings = {
 
 
 tikz_settings = {
-    'axis_width'  :   '0.5\\textwidth',
+    'axis_width'  :   '\\textwidth',
 }
 
 
