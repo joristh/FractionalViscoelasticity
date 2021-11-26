@@ -70,12 +70,12 @@ config = {
 
     ### Measurements
     'observer'          :   TipDisplacementObserver,
-    'noise_level'       :   4, ### [%]
+    'noise_level'       :   2, ### [%]
 
     ### Optimization
-    'optimizer'         :   torch.optim.LBFGS, ### E.g., torch.optim.SGD, torch.optim.LBFGS, ...
+    'optimizer'         :   torch.optim.LBFGS, ### E.g., torch.optim.SGD, torch.optim.LBFGS (recommended), ...
     'nepochs'           :   10,
-    'tol'               :   1.e-4,
+    'tol'               :   1.e-5,
     'regularization'    :   None,  ### your regularization function, e.g., "reg", or None/False for no regularization
     'initial_guess'     :   None,  ### initial guess for parameters calibration: (weights, exponents)
 }
