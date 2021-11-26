@@ -36,7 +36,14 @@ class ViscoelasticityProblem(torch_fenics.FEniCSModule):
         self.fg_viscosity = kwargs.get("viscosity", False)
         self.fg_inverse   = kwargs.get("InverseProblem", False)
 
-        # elastic parameters
+        self.flags = {
+            'verbose'       :   kwargs.get("verbose", False),
+            'inverse'       :   kwargs.get("InverseProblem", False),
+            'viscosity'     :   kwargs.get("viscosity", False),
+            'export_vtk'    :   kwargs.get("export_vtk", None)
+        }
+
+        ### Elastic parameters
         E  = kwargs.get('Young', 1.e3)
         nu = kwargs.get('Poisson', 0.3)
         E, nu = Constant(E), Constant(nu)
@@ -44,7 +51,7 @@ class ViscoelasticityProblem(torch_fenics.FEniCSModule):
         mu    = E/2./(1+nu)
         self.lmbda, self.mu = lmbda, mu
 
-        # Mass density
+        ### Mass density
         rho = kwargs.get('density', 1.)
         rho = Constant(rho)
         self.rho = rho
@@ -53,13 +60,13 @@ class ViscoelasticityProblem(torch_fenics.FEniCSModule):
         ### Mesh
         mesh = self.set_mesh(**kwargs)
 
-        ### FE space
+        ### Finite elements space
         deg_u = kwargs.get("degree", 1)
         V = VectorFunctionSpace(mesh, "CG", deg_u)
         self.V = V
         u_, v_ = TrialFunction(V), TestFunction(V)
 
-        ### BCs
+        ### Boundary conditions
         self.set_boundary_condition(**kwargs)
         
         ### Source terms
@@ -70,18 +77,13 @@ class ViscoelasticityProblem(torch_fenics.FEniCSModule):
         self.set_time_stepper(**kwargs)
 
         ### Integral kernels
-        kernel = kwargs.get("kernel", SumOfExponentialsKernel_Torch(**kwargs))
-        if isinstance(kernel, list):
-            self.kernels = 
-
-        fg_split_kernels = kwargs.get("split", False)
-        if fg_split_kernels: ### two kernels
-            self.kernel = SumOfExponentialsKernel_Torch(**kwargs)
-            self.kernel.compute_coefficients(self.dt)
-        else: ### one kernel
-            self.kernel = SumOfExponentialsKernel_Torch(**kwargs)
-            self.kernel.compute_coefficients(self.dt)
-
+        kernels = kwargs.get("kernels", SumOfExponentialsKernel_Torch(**kwargs))
+        if isinstance(kernels, list):
+            self.kernels = nn.ModuleList(kernels)
+            self.flags['unique_kernel'] = False
+        else:
+            self.kernels = nn.ModuleList([kernels, kernels])
+            self.flags['unique_kernel'] = True
 
         ### Linear solver
         self.LinSolver = set_linSolver()
@@ -174,6 +176,8 @@ class ViscoelasticityProblem(torch_fenics.FEniCSModule):
 
     """
     ==================================================================================================================
+    Mechanical tensors calculus
+    ==================================================================================================================
     """
 
     def eps(self, v):
@@ -206,7 +210,7 @@ class ViscoelasticityProblem(torch_fenics.FEniCSModule):
 
     def initialize_state(self):
 
-        if self.fg_inverse:
+        if self.flags['inverse']:
             torch.set_grad_enabled(True)
         else:
             torch.set_grad_enabled(False)
@@ -225,8 +229,9 @@ class ViscoelasticityProblem(torch_fenics.FEniCSModule):
         self.history = torch.zeros_like(self.u, requires_grad=True)
         self.w = torch.zeros_like(self.u)
 
-        if self.fg_viscosity:
-            self.kernel.init(h=self.dt)
+        if self.flags['viscosity']:
+            for kernel in self.kernels:
+                kernel.init(h=self.dt)
 
         self.observations   = []
         self.Energy_elastic = np.array([])
@@ -273,7 +278,7 @@ class ViscoelasticityProblem(torch_fenics.FEniCSModule):
 
 
     def export_state(self, time=0):
-        if self.fg_export_vtk:
+        if self.flags['export_vtk']:
             if not hasattr(self, "file_results"):
                 filename = "results"
                 self.file_results = XDMFFile(self.outputfolder+filename+".xdmf")
