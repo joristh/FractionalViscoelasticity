@@ -54,7 +54,7 @@ config = {
     'mesh'              :   mesh,
     'DirichletBoundary' :   DirichletBoundary,
     'NeumannBoundary'   :   NeumannBoundary,
-    'loading'           :   [load_Bending, load_Extension], ###  load_Bending, [load_Bending, load_Extension] ### default loading (mainly for initialization)
+    'loading'           :   load_Bending, ###  load_Bending, [load_Extension, load_Bending] ### default loading (mainly for initialization)
 
     ### Material parameters
     'Young'             :   1.e3,
@@ -70,12 +70,13 @@ config = {
 
     ### Measurements
     'observer'          :   TipDisplacementObserver,
-    'noise_level'       :   1, ### [%]
+    'noise_level'       :   6, ### [%]
 
     ### Optimization
-    'optimizer'         :   torch.optim.SGD, ### E.g., torch.optim.SGD, torch.optim.LBFGS, ...
-    'max_iter'          :   40,
-    'tol'               :   1.e-4,
+    'optimizer'         :   torch.optim.LBFGS, ### E.g., torch.optim.SGD, torch.optim.LBFGS, ...
+    'max_iter'          :   100,
+    'tol'               :   1.e-5,
     'regularization'    :   None,  ### your regularization function, e.g., "reg", or None/False for no regularization
     'initial_guess'     :   None,  ### initial guess for parameters calibration: (weights, exponents)
+    'line_search_fn'    :   'strong_wolfe', ### None, 'strong_wolfe',
 }

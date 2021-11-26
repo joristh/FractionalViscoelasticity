@@ -64,17 +64,20 @@ class ViscoelasticityProblem(torch_fenics.FEniCSModule):
         self.set_boundary_condition(**kwargs)
         
         ### Source terms
-        self.set_load(**kwargs)
+        loading = kwargs.get("loading", None)
+        if not isinstance(loading, list):
+            self.set_load(**kwargs)
         
         ### Time scheme
         self.Newmark = Newmark()
         self.set_time_stepper(**kwargs)
 
         ### Integral kernels
-        fg_split_kernels = kwargs.get("split", False)
-        if fg_split_kernels: ### two kernels
-            self.kernel = SumOfExponentialsKernel_Torch(**kwargs)
-            self.kernel.compute_coefficients(self.dt)
+        self.fg_split_kernels = kwargs.get("split", False)
+        if self.fg_split_kernels: ### two kernels
+            self.kernels = nn.ModuleList([SumOfExponentialsKernel_Torch(**kwargs) for i in range(2) ])
+            for kernel in self.kernels:
+                kernel.compute_coefficients(self.dt)
         else: ### one kernel
             self.kernel = SumOfExponentialsKernel_Torch(**kwargs)
             self.kernel.compute_coefficients(self.dt)
@@ -193,9 +196,15 @@ class ViscoelasticityProblem(torch_fenics.FEniCSModule):
     def k(self, u, u_):
         return inner(self.sigma(self.eps(u)), self.eps(u_))*dx
 
-    # Viscous form 
+    # Viscous forms
     def c(self, u, u_):
         return self.k(u, u_)
+
+    def c_tr(self, u, u_):
+        return inner((self.lmbda+2./self.ndim*self.mu)*tr(self.eps(u))*Identity(3), self.eps(u_))*dx
+
+    def c_dev(self, u, u_):
+        return inner(2*self.mu*dev(self.eps(u)), self.eps(u_))*dx
 
     """
     ==================================================================================================================
@@ -219,11 +228,19 @@ class ViscoelasticityProblem(torch_fenics.FEniCSModule):
         self.v = torch.zeros_like(self.u, requires_grad=True)
         self.a = torch.zeros_like(self.u, requires_grad=True)
         self.a_new = torch.zeros_like(self.u, requires_grad=True)
-        self.history = torch.zeros_like(self.u, requires_grad=True)
+
+        if self.fg_split_kernels:
+            self.history = [ torch.zeros_like(self.u, requires_grad=True) for kernel in self.kernels ]
+        else:
+            self.history = torch.zeros_like(self.u, requires_grad=True)
         self.w = torch.zeros_like(self.u)
 
         if self.fg_viscosity:
-            self.kernel.init(h=self.dt)
+            if self.fg_split_kernels:
+                for kernel in self.kernels:
+                    kernel.init(h=self.dt)
+            else: ### One kernel
+                self.kernel.init(h=self.dt)
 
         self.observations   = []
         self.Energy_elastic = np.array([])
@@ -252,20 +269,24 @@ class ViscoelasticityProblem(torch_fenics.FEniCSModule):
         # if self.DirichletBC: self.bc_u.apply(self.u.vector())
 
         if self.fg_viscosity:
-            self.history = self.kernel.update_history(self.v)
+            if self.fg_split_kernels:
+                self.history = [ kernel.update_history(self.v) for kernel in self.kernels ]
+            else: ### One kernel
+                self.history = self.kernel.update_history(self.v)
 
-            ### auxilary variable is not backpropagated, so the content is mutable
-            self.w[:] = ( self.kernel.Weights * self.kernel.modes ).sum(dim=-1)
+                ### auxilary variable is not backpropagated, so the content is mutable
+                self.w[:] = ( self.kernel.Weights * self.kernel.modes ).sum(dim=-1)
 
         ### Update FEniCS state functions (if needed)
-        if (not self.fg_inverse) or self.fg_export_vtk:
+        if ((not self.fg_inverse) or self.fg_export_vtk):
             self.u_func.vector()[:] = self.u.detach().numpy()
             self.v_func.vector()[:] = self.v.detach().numpy()
             self.a_func.vector()[:] = self.a.detach().numpy()
             self.p_func.vector()[:] = self.f_surf
             if self.fg_viscosity:
-                self.w_func.vector()[:] = self.w.detach().numpy()
-                self.H_func.vector()[:] = self.history.detach().numpy()
+                if not self.fg_split_kernels:
+                    self.w_func.vector()[:] = self.w.detach().numpy()
+                    self.H_func.vector()[:] = self.history.detach().numpy()
 
 
 
@@ -330,7 +351,12 @@ class ViscoelasticityProblem(torch_fenics.FEniCSModule):
     def forward_solve(self, parameters=None, loading=None):
 
         if parameters is not None:
-            self.kernel.update_parameters(parameters)
+            if self.fg_split_kernels:
+                n = len(parameters) // 2
+                self.kernels[0].update_parameters(parameters[:n])
+                self.kernels[1].update_parameters(parameters[n:])
+            else: ### One kernel
+                self.kernel.update_parameters(parameters)
 
         if loading is not None:
             self.set_load(loading=loading)
@@ -365,14 +391,68 @@ class ViscoelasticityProblem(torch_fenics.FEniCSModule):
         un = self.u.reshape([1, -1, self.ndim])
         vn = self.v.reshape([1, -1, self.ndim])
         an = self.a.reshape([1, -1, self.ndim])
-        Hn = self.history.reshape([1, -1, self.ndim])
-        coef_a = self.kernel.coef_a.reshape([1, 1])
-        coef_c = self.kernel.coef_c.reshape([1, 1])
-        a_new = self.__call__(un, vn, an, Hn, coef_a, coef_c)
+
+        if self.fg_split_kernels:
+            Hn     = self.history[0].reshape([1, -1, self.ndim])
+            coef_a = self.kernels[0].coef_a.reshape([1, 1])
+            coef_c = self.kernels[0].coef_c.reshape([1, 1])
+
+            Hn_dev     = self.history[1].reshape([1, -1, self.ndim])
+            coef_a_dev = self.kernels[1].coef_a.reshape([1, 1])
+            coef_c_dev = self.kernels[1].coef_c.reshape([1, 1])
+
+            a_new = self.__call__(un, vn, an, Hn, coef_a, coef_c, Hn_dev, coef_a_dev, coef_c_dev)
+        else:
+            Hn     = self.history.reshape([1, -1, self.ndim])
+            coef_a = self.kernel.coef_a.reshape([1, 1])
+            coef_c = self.kernel.coef_c.reshape([1, 1])
+            a_new = self.__call__(un, vn, an, Hn, coef_a, coef_c, Hn, coef_a, coef_c)
+
         self.a_new = a_new.flatten()
 
 
-    def solve(self, un, vn, an, Hn, coef_a, coef_c):
+    # def solve(self, un, vn, an, Hn, coef_a, coef_c):
+    #     h  = self.dt
+    #     beta, gamma = self.Newmark.beta, self.Newmark.gamma
+
+    #     u_, v_= TrialFunction(self.V), TestFunction(self.V)
+
+    #     u_star = un + h * vn + 0.5*h**2 * (1-2*beta) * an
+    #     rhs    = self.forces_form - self.k(u_star, v_)
+    #     coef1  = h**2 * beta
+    #     lhs    = self.m(u_, v_) + coef1 * self.k(u_,v_)
+
+    #     if self.fg_viscosity:
+    #         if self.fg_split_kernels:
+    #             ### Hydrostatic part
+    #             u_star_visc = 0.5*h*coef_c[0] * vn + 0.5*h*coef_a[0] * (vn + h*(1-gamma) * an) + Hn[0]
+    #             rhs   = rhs - self.c_tr(u_star_visc, v_)
+    #             coef2 = (0.5 * h**2 * gamma) * coef_a[0]
+    #             lhs   = lhs + coef2 * self.c_tr(u_,v_)      
+
+    #             ### Deviatioric part                
+    #             u_star_visc = 0.5*h*coef_c[1] * vn + 0.5*h*coef_a[1] * (vn + h*(1-gamma) * an) + Hn[1]
+    #             rhs   = rhs - self.c_dev(u_star_visc, v_)
+    #             coef2 = (0.5 * h**2 * gamma) * coef_a[1]
+    #             lhs   = lhs + coef2 * self.c_dev(u_,v_)
+
+    #         else: ### One kernel
+    #             u_star_visc = 0.5*h*coef_c * vn + 0.5*h*coef_a * (vn + h*(1-gamma) * an) + Hn
+    #             rhs   = rhs - self.c(u_star_visc, v_)
+    #             coef2 = (0.5 * h**2 * gamma) * coef_a
+    #             lhs   = lhs + coef2 * self.c(u_,v_)
+
+    #     A, b = fenics_adjoint.assemble_system(lhs, rhs, bcs=self.bc_a)
+
+    #     self.LinSolver.set_operator(A)
+
+    #     a_new = Function(self.V)
+
+    #     self.LinSolver.solve(a_new.vector(), b)
+
+    #     return a_new
+
+    def solve(self, un, vn, an, Hn, coef_a, coef_c, Hn_dev, coef_a_dev, coef_c_dev):
         h  = self.dt
         beta, gamma = self.Newmark.beta, self.Newmark.gamma
 
@@ -384,10 +464,24 @@ class ViscoelasticityProblem(torch_fenics.FEniCSModule):
         lhs    = self.m(u_, v_) + coef1 * self.k(u_,v_)
 
         if self.fg_viscosity:
-            u_star_visc = 0.5*h*coef_c * vn + 0.5*h*coef_a * (vn + h*(1-gamma) * an) + Hn
-            rhs   = rhs - self.c(u_star_visc, v_)
-            coef2 = (0.5 * h**2 * gamma) * coef_a
-            lhs = lhs + coef2 * self.c(u_,v_)
+            if self.fg_split_kernels:
+                ### Hydrostatic part
+                u_star_visc = 0.5*h*coef_c * vn + 0.5*h*coef_a * (vn + h*(1-gamma) * an) + Hn
+                rhs   = rhs - self.c_tr(u_star_visc, v_)
+                coef2 = (0.5 * h**2 * gamma) * coef_a
+                lhs   = lhs + coef2 * self.c_tr(u_,v_)      
+
+                ### Deviatioric part                
+                u_star_visc = 0.5*h*coef_c_dev * vn + 0.5*h*coef_a_dev * (vn + h*(1-gamma) * an) + Hn_dev
+                rhs   = rhs - self.c_dev(u_star_visc, v_)
+                coef2 = (0.5 * h**2 * gamma) * coef_a_dev
+                lhs   = lhs + coef2 * self.c_dev(u_,v_)
+
+            else: ### One kernel
+                u_star_visc = 0.5*h*coef_c * vn + 0.5*h*coef_a * (vn + h*(1-gamma) * an) + Hn
+                rhs   = rhs - self.c(u_star_visc, v_)
+                coef2 = (0.5 * h**2 * gamma) * coef_a
+                lhs   = lhs + coef2 * self.c(u_,v_)
 
         A, b = fenics_adjoint.assemble_system(lhs, rhs, bcs=self.bc_a)
 
@@ -397,13 +491,15 @@ class ViscoelasticityProblem(torch_fenics.FEniCSModule):
 
         self.LinSolver.solve(a_new.vector(), b)
 
-        # solve(lhs == rhs, a_new, self.bc_a)
-
         return a_new
 
 
     def input_templates(self):
-        return ( Function(self.V), Function(self.V), Function(self.V), Function(self.V), Constant(0.), Constant(0.) )
+        return ( Function(self.V), Function(self.V), Function(self.V), Function(self.V), Constant(0.), Constant(0.), Function(self.V), Constant(0.), Constant(0.) )
+        # if self.fg_split_kernels:
+        #     return ( Function(self.V), Function(self.V), Function(self.V), Function(self.V), Function(self.V), Constant(0.), Constant(0.), Constant(0.), Constant(0.) )
+        # else: ### One kernel
+        #     return ( Function(self.V), Function(self.V), Function(self.V), Function(self.V), Constant(0.), Constant(0.) )
 
 
     # """

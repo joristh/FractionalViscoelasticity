@@ -11,7 +11,7 @@ Inverse problem using torch optimizer
 
 
 import torch
-from torch.nn.utils.convert_parameters import parameters_to_vector
+from torch.nn.utils.convert_parameters import parameters_to_vector, vector_to_parameters
 from ufl.measure import register_integral_type
 
 
@@ -34,12 +34,15 @@ class InverseProblem:
 
         Model.fg_inverse = True
         Model.fg_export  = False
+        self.fg_split_kernels = Model.fg_split_kernels
 
         if initial_guess is not None:
             for i, p in enumerate(Model.parameters()):
                 p.data[:] = torch.tensor(initial_guess[i])
 
         ### print initial parameters
+        print('Number of parameters =', sum(p.numel() for p in Model.parameters()))
+        print('Initial parameters:')
         self.print_parameters(Model.parameters())
 
         ### Optimizer
@@ -65,8 +68,11 @@ class InverseProblem:
             nepochs = kwargs.get("nepochs", 1)
             optimization_settings = {
                 'lr'                :   lr,
-                'line_search_fn'    :   'strong_wolfe',
+                'line_search_fn'    :   kwargs.get('line_search_fn', 'strong_wolfe'),
                 'max_iter'          :   max_iter,
+                'tolerance_grad'    :   tol,
+                # 'tolerance_change'  :   tol,
+                'history_size'      :   kwargs.get('history_size', 100),
             }       
         self.Optimizer = optimizer(Model.parameters(), **optimization_settings)
 
@@ -74,14 +80,13 @@ class InverseProblem:
         self.convergence_history = {
             'loss'      :   [],
             'grad'      :   [],
-            'loss_all'  :   [],  ### values including internal BFGS and line search iterations
-            'grad_all'  :   [],  ### same for the grad norm
+            'parameters':   [],
         }
 
 
         ### Loading type
         loading = kwargs.get("loading", None)
-        if hasattr(loading, '__iter__'): ### multiple loadings case
+        if isinstance(loading, list): ### multiple loadings case
             def Forward():
                 obs = torch.tensor([])
                 for loading_instance in loading:
@@ -98,7 +103,7 @@ class InverseProblem:
         def get_grad():
             return torch.cat([p.grad for p in Model.parameters()])
 
-
+        self.iter = 0
         def closure():
             self.Optimizer.zero_grad()
             theta     = parameters_to_vector(Model.parameters())
@@ -109,38 +114,35 @@ class InverseProblem:
             self.loss.backward()
             self.grad = get_grad()
             grad_norm = self.grad.norm(p=float('inf'))
-            print('loss = ', self.loss.item())
-            print('grad = ', grad_norm.item())
-            self.convergence_history['loss_all'].append(self.loss.item())
-            self.convergence_history['grad_all'].append(grad_norm.item())
-            return self.loss
-
-
-
-
-        ### Optimization loop
-        for epoch in range(nepochs):
-            self.Optimizer.step(closure)
-            grad_norm = self.grad.norm(p=float('inf'))
 
             ### convergence monitor
+            self.iter = self.iter + 1
             if verbose:
                 print()
                 print('=================================')
-                print('-> Epoch {0:d}/{1:d}'.format(epoch+1, nepochs))
+                print('-> Iteration {0:d}/{1:d}'.format(self.iter, max_iter))
                 print('=================================')
                 print('loss = ', self.loss.item())
                 print('grad = ', grad_norm.item())
                 print('=================================')
+                print('parameters:')                
+                self.print_parameters(Model.parameters())
+                print('=================================')
                 print()
                 print()
 
-            ### store history
+            ### store convergence history
             self.convergence_history['loss'].append(self.loss.item())
             self.convergence_history['grad'].append(grad_norm.item())
+            self.convergence_history['parameters'].append(parameters_to_vector(Model.parameters()))
 
-            ### stopping criterion
-            if grad_norm < tol: break
+            return self.loss
+
+
+        ### Minimization
+        for epoch in range(nepochs):
+            self.Optimizer.step(closure)
+
 
         ### ending
         theta_opt = parameters_to_vector(Model.parameters())
@@ -151,9 +153,19 @@ class InverseProblem:
 
     def print_parameters(self, parameters):
         # print("Parameters: ", [p.tolist() for p in parameters])
-        weights, exponents = [p for p in parameters]
-        print("Weights:   ", weights.tolist())
-        print("Exponents: ", exponents.tolist())
+        if self.fg_split_kernels:
+            p = parameters_to_vector(parameters)
+            n = len(p) // 4
+            weights, exponents = p[:n], p[n:2*n]
+            print("Ker 1: Weights:   ", weights.tolist())
+            print("Ker 1: Exponents: ", exponents.tolist())
+            weights, exponents = p[2*n:3*n], p[3*n:]
+            print("Ker 2: Weights:   ", weights.tolist())
+            print("Ker 2: Exponents: ", exponents.tolist())
+        else:
+            weights, exponents = [p for p in parameters]
+            print("Weights:   ", weights.tolist())
+            print("Exponents: ", exponents.tolist())
             
 
 

@@ -52,7 +52,7 @@ c1, d1 = np.array(theta_true)
 def kernel_exp_true(t):
     return np.sum(c1 * np.exp(-d1*t))
 
-c2, d2 = np.array(theta_pred.abs().detach()).reshape([2,-1])
+c2, d2 = np.array(theta_pred.square().detach()).reshape([2,-1])
 @np.vectorize
 def kernel_exp_pred(t):
     return np.sum(c2 * np.exp(-d2*t))
@@ -91,6 +91,11 @@ legend_settings = {
 }
 
 
+tikz_settings = {
+    'axis_width'  :   '0.5\\textwidth',
+}
+
+
 
 with torch.no_grad():
 
@@ -109,7 +114,7 @@ with torch.no_grad():
     plt.ylabel(r"Tip displacement")
     plt.xlabel(r"$t$")
 
-    tikzplotlib.save(tikz_folder+"plt_tip_displacement.tex")
+    tikzplotlib.save(tikz_folder+"plt_tip_displacement.tex", **tikz_settings)
 
 
     """
@@ -131,9 +136,9 @@ with torch.no_grad():
     plt.grid(True, which='both')
     plt.ylabel(r"Energy")
     plt.xlabel(r"$t$")
-    plt.legend(**legend_settings)
+    plt.legend()
 
-    tikzplotlib.save(tikz_folder+"plt_energies.tex")
+    tikzplotlib.save(tikz_folder+"plt_energies.tex", **tikz_settings)
 
 
 
@@ -144,7 +149,7 @@ with torch.no_grad():
     """
     plt.figure('Kernels', **figure_settings)
     # plt.title('Kernels')
-    t = np.logspace(-2, 3, 100)
+    t = np.geomspace(0.04, 4, 100)
     plt.plot(t, kernel_exp_init(t), "-", color="gray", label="sum-of-exponentials (initial guess)", **plot_settings)
     plt.plot(t, kernel_exp_pred(t), "r-", label="sum-of-exponentials (predict)", **plot_settings)
     plt.plot(t, kernel_exp_true(t), "b-", label="sum-of-exponentials (truth)", **plot_settings)
@@ -153,9 +158,42 @@ with torch.no_grad():
     plt.xscale('log')
     plt.ylabel(r"$k(t)$")
     plt.xlabel(r"$t$")
-    plt.legend(**legend_settings)
+    plt.legend()
 
-    tikzplotlib.save(tikz_folder+"plt_kernels.tex")
+    tikzplotlib.save(tikz_folder+"plt_kernels.tex", **tikz_settings)
+
+
+    """
+    ==================================================================================================================
+    Figure 4: Parameters convergence
+    ==================================================================================================================
+    """
+    parameters = convergence_history["parameters"]
+    nsteps = len(parameters)
+    p = torch.stack(parameters).square().reshape([nsteps,2,-1]).detach().numpy()
+
+    plt.figure('Parameters convergence: Weights', **figure_settings)
+    # plt.title('Parameters convergence: Weights')
+    for i in range(p.shape[-1]):
+        plt.plot(p[:,0,i]/(1+p[:,1,i]), label=r'$w_{{%(i)d}}$' % {'i' : i+1}, **plot_settings)
+    plt.ylabel(r"$\frac{w}{1+\lambda}$")
+    plt.xlabel(r"$iteration$")
+    plt.legend()
+
+    tikzplotlib.save(tikz_folder+"plt_weights_convergence.tex", **tikz_settings)
+    # plt.yscale('log')
+
+
+    plt.figure('Parameters convergence: Exponents', **figure_settings)
+    # plt.title('Parameters convergence: Exponents')
+    for i in range(p.shape[-1]):
+        plt.plot(p[:,1,i]/(1+p[:,1,i]), label=r'$\lambda_{{%(i)d}}$' % {'i' : i+1}, **plot_settings)
+    # plt.yscale('log')
+    plt.ylabel(r"$\frac{\lambda}{1+\lambda}$")
+    plt.xlabel(r"$iteration$")
+    plt.legend()
+
+    tikzplotlib.save(tikz_folder+"plt_exponents_convergence.tex", **tikz_settings)
 
 
     """

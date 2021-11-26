@@ -20,6 +20,16 @@ config['nModes']    = RA.nModes
 config['weights']   = RA.c
 config['exponents'] = RA.d
 
+# config['nModes']    = 8
+# config['weights']   = [1.0735e-01, 1.7315e-01, 3.6693e-01, 8.8820e-01, 1.0860e+00, 2.2113e+00, 6.1638e+00, 2.3872e+01]
+# config['exponents'] = [ 1.2458e-03, 1.6176e-02, 9.4062e-02, 5.1814e-01, 2.3980e+00, 1.4902e+01, 9.7315e+01, 8.5205e+02]
+# [1.0735e-01, 1.7315e-01, 3.6693e-01, 8.8820e-01, 1.0860e+00, 2.2113e+00,
+#         6.1638e+00, 2.3872e+01, 1.2458e-03, 1.6176e-02, 9.4062e-02, 5.1814e-01,
+#         2.3980e+00, 1.4902e+01, 9.7315e+01, 8.5205e+02]
+
+# config['nModes']    = 8
+# config['weights']   = [1.0668e-01, 1.7207e-01, 3.6453e-01, 8.7697e-01, 1.0899e+00, 2.2209e+00, 6.1644e+00, 2.3872e+01]
+# config['exponents'] = [1.2450e-03, 1.6150e-02, 9.3422e-02, 5.0594e-01, 2.4230e+00, 1.4901e+01, 9.7315e+01, 8.5205e+02]
 
 print()
 print()
@@ -69,7 +79,7 @@ print("================================")
 Model = ViscoelasticityProblem(**config)
 
 loading = config.get("loading", None)
-if hasattr(loading, '__iter__'): ### multiple loadings case
+if isinstance(loading, list): ### multiple loadings case
     def Forward():
         obs = torch.tensor([])
         for loading_instance in loading:

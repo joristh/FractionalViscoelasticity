@@ -15,7 +15,10 @@ Initial guess
 alpha = 0.5
 RA = RationalApproximation(alpha=alpha, tol=1.e-4)#, verbose="plot")
 config['nModes'] = RA.nModes
-config['initial_guess'] = [RA.c, RA.d]
+if config['split']:
+    config['initial_guess'] = [RA.c, RA.d, RA.c, RA.d]
+else:
+    config['initial_guess'] = [RA.c, RA.d]
 
 
 """

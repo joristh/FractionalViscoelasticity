@@ -156,9 +156,10 @@ class SumOfExponentialsKernel_Torch(nn.Module):
             h = self.h
         else:
             self.h = h
-        lmbda   = self.Exponents.abs()
+        # lmbda   = self.Exponents.abs()
+        lmbda   = self.Exponents.square()
         theta   = lmbda / (1 + lmbda)
-        self.wk = self.Weights.abs() * (1-theta)
+        self.wk = self.Weights.square() * (1-theta)
         lgh     = lmbda*gamma*h
         den     = (1-theta)*(1 + lgh) + theta * h/2 * (1 + 2*lgh)
         self.coef_ak = (1 + 2*lgh) / den
