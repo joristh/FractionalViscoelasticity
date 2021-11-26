@@ -13,11 +13,25 @@ Abstract kernel class (parent)
 
 class AbstractKernel(nn.Module):
 
-    def __init__(self, **kwargs):
-        super().__init__()      
+    def __init__(self, **kwargs) -> None:
+        super().__init__()
+        parameters       = kwargs.get("parameters", self.default_parameters(**kwargs)) ### list of the model parameters
+        self._parameters = nn.Parameter(torch.zeros([len(parameters)], dtype=torch.float64))
+        self.update_parameters(parameters)
 
+    def default_parameters(self, **kwargs):
+        return []
 
+    def update_parameters(self, parameters=None):
+        if parameters is not None:
+            self._parameters.data[:] = parameters
+
+    @np.vectorize
     def __call__(self, t):
+        return 0
+
+    @np.vectorize
+    def eval_spectrum(self, z):  
         return 0
         
 """
@@ -30,69 +44,59 @@ class SumOfExponentialsKernel(AbstractKernel):
 
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
-
-        
-        parameters       = kwargs.get("parameters", self.init_fractional(**kwargs)) ### list of the model parameters (default: from fractional)
-        self._parameters = nn.Parameter(torch.tensor(parameters, dtype=torch.float64).sqrt())  ### impose positivity via sqrt/square
-        self.nModes      = len(parameters)
-        self.Weights   = nn.Parameter(torch.ones([self.nModes], dtype=torch.float64))
-        self.Exponents = nn.Parameter(torch.zeros([self.nModes], dtype=torch.float64))
-
-        weights = kwargs.get("weights", None)
-        if weights is not None: self.set_Weights(weights)
-
-        exponents = kwargs.get("exponents", None)
-        if exponents is not None: self.set_Exponents(exponents)
+        self.nModes = self.weights.numel()
 
 
     ### Initialize parameters from a rational approximation
-    def init_fractional(self, **kwargs):
+    def default_parameters(self, **kwargs):
         from .RationalApproximation import RationalApproximation_AAA as RationalApproximation
-        settings = kwargs.get("init_fractional", {"alpha" : 0.5 }) ### dictionary of RA settings
+        settings = kwargs.get("init_fractional", {"alpha" : 0.5, "tol" : 1.e-4 }) ### dictionary of RA settings
         RA = RationalApproximation(**settings)
         parameters = list(RA.c) + list(RA.d)
         return parameters
 
 
-    def set_Weights(self, values):
-        for k in range(self.nModes):
-            self.Weights.data[k] = values[k]
-
-    def set_Exponents(self, values):
-        for k in range(self.nModes):
-            self.Exponents.data[k] = values[k]
-
-
-    def update_parameters(self, parameters):
-        weights   = parameters[:self.nModes]
-        exponents = parameters[self.nModes:]
-        self.set_Weights(weights)
-        self.set_Exponents(exponents)
+    def update_parameters(self, parameters=None):
+        if parameters is not None:
+            self._parameters.data[:] = parameters
+            self._parameters.data[:] = self._parameters.data.sqrt() ### impose positivity via sqrt/square
+        self.weights   = self._parameters.data[:self.nModes].square()
+        self.exponents = self._parameters.data[self.nModes:].square()
         self.compute_coefficients(self.h)
 
-    
+
+    """
+    ==================================================================================================================
+    Functions evaluation
+    ==================================================================================================================
+    """
 
     @np.vectorize
     def __call__(self, t):
-        c, d = self.Weights.detach().numpy(), self.Exponents.detach().numpy()
+        c, d = self.weights.detach().numpy(), self.exponents.detach().numpy()
         return np.sum(c * np.exp(-d*t))
 
 
     @np.vectorize
     def eval_spectrum(self, z):
-        c, d = self.Weights.detach().numpy(), self.Exponents.detach().numpy()     
+        c, d = self.weights.detach().numpy(), self.exponents.detach().numpy()     
         return np.sum(c / (z + d))
 
 
+    """
+    ==================================================================================================================
+    Evolution of the modes and the history integral
+    ==================================================================================================================
+    """
 
     def compute_coefficients(self, h=None, gamma=1):
         if h is None:
             h = self.h
         else:
             self.h = h
-        lmbda   = self.Exponents
+        lmbda   = self.exponents
         theta   = lmbda / (1 + lmbda)
-        self.wk = self.Weights * (1-theta)
+        self.wk = self.weights * (1-theta)
         lgh     = lmbda*gamma*h
         den     = (1-theta)*(1 + lgh) + theta * h/2 * (1 + 2*lgh)
         self.coef_ak = (1 + 2*lgh) / den
@@ -103,8 +107,10 @@ class SumOfExponentialsKernel(AbstractKernel):
 
 
     def init(self, h=None, gamma=1):
+        self.update_parameters()
         self.compute_coefficients(h, gamma)
-        self.modes = None
+        self.modes   = None
+        self.history = 0
         
 
 
