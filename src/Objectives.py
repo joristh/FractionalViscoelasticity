@@ -13,7 +13,7 @@ class MSE:
         self.data = data
         if not torch.is_tensor(self.data):
             self.data = torch.tensor(self.data)
-        self.data = self.data.reshape([-1,1])
+        # self.data = self.data.reshape([-1,1])
 
     def __call__(self, y):
         if not torch.is_tensor(y):

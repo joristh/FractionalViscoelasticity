@@ -2,6 +2,7 @@
 import numpy as np
 import torch
 from torch import nn
+from math import gamma
 
 
 
@@ -13,10 +14,10 @@ Abstract kernel class (parent)
 
 class AbstractKernel(nn.Module):
 
-    def __init__(self, **kwargs) -> None:
+    def __init__(self, **kwargs):
         super().__init__()
-        parameters       = kwargs.get("parameters", self.default_parameters(**kwargs)) ### list of the model parameters
-        self._parameters = nn.Parameter(torch.zeros([len(parameters)], dtype=torch.float64))
+        parameters = kwargs.get("parameters", self.default_parameters(**kwargs)) ### list of the model parameters
+        self._kernel_parameters = nn.Parameter(torch.zeros([len(parameters)], dtype=torch.float64))
         self.update_parameters(parameters)
 
     def default_parameters(self, **kwargs):
@@ -24,7 +25,7 @@ class AbstractKernel(nn.Module):
 
     def update_parameters(self, parameters=None):
         if parameters is not None:
-            self._parameters.data[:] = parameters
+            self._kernel_parameters.data[:] = parameters
 
     @np.vectorize
     def __call__(self, t):
@@ -33,6 +34,38 @@ class AbstractKernel(nn.Module):
     @np.vectorize
     def eval_spectrum(self, z):  
         return 0
+
+
+"""
+==================================================================================================================
+Fractional kernel class
+==================================================================================================================
+"""
+
+class FractionalKernel(AbstractKernel):
+
+    def __init__(self, **kwargs):
+        super().__init__()
+        alpha = kwargs.get("alpha", 0.5)
+        self.update_parameters(parameters=[alpha])
+
+    def default_parameters(self, **kwargs):
+        return [0.5]
+
+    def update_parameters(self, parameters=None):
+        if parameters is not None:
+            self._kernel_parameters.data[:] = torch.tensor(parameters).sqrt()
+        self.alpha = self._kernel_parameters[0].square()
+
+    @np.vectorize
+    def __call__(self, t):
+        return t**(self.alpha-1) / gamma(self.alpha)
+
+    @np.vectorize
+    def eval_spectrum(self, z):  
+        return z**(-self.alpha)
+
+
         
 """
 ==================================================================================================================
@@ -42,9 +75,8 @@ Sum-of-exponentials kernel class
 
 class SumOfExponentialsKernel(AbstractKernel):
 
-    def __init__(self, **kwargs) -> None:
+    def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.nModes = self.weights.numel()
 
 
     ### Initialize parameters from a rational approximation
@@ -58,11 +90,13 @@ class SumOfExponentialsKernel(AbstractKernel):
 
     def update_parameters(self, parameters=None):
         if parameters is not None:
-            self._parameters.data[:] = parameters
-            self._parameters.data[:] = self._parameters.data.sqrt() ### impose positivity via sqrt/square
-        self.weights   = self._parameters.data[:self.nModes].square()
-        self.exponents = self._parameters.data[self.nModes:].square()
-        self.compute_coefficients(self.h)
+            self._kernel_parameters.data[:] = torch.tensor(parameters).double().sqrt() ### impose positivity via sqrt/square
+            nparameters = self._kernel_parameters.data.numel()
+            assert( nparameters % 2 == 0 )
+            self.nModes = nparameters // 2
+
+        self.weights   = self._kernel_parameters[:self.nModes].square()
+        self.exponents = self._kernel_parameters[self.nModes:].square()
 
 
     """

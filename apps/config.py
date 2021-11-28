@@ -6,7 +6,8 @@ import torch
 import numpy as np
 import matplotlib.pyplot as plt
 
-from src.Viscoelasticity_torch import ViscoelasticityProblem
+from src.Viscoelasticity import ViscoelasticityProblem
+from src.Kernels import SumOfExponentialsKernel
 from src.InverseProblem import InverseProblem
 from src.Observers import TipDisplacementObserver
 from src.Objectives import MSE
@@ -36,9 +37,10 @@ def NeumannBoundary(x, on_boundary):
     return near(x[0], 1.) and on_boundary
 
 ### loading (depending on t)
-magnitude   = 1.
-cutoff_time = 4/5
+cutoff_time    = 4/5
+magnitude      = 1.
 load_Bending   = Expression(("0", "t <= tc ? p0*t/tc : 0", "0"), t=0, tc=cutoff_time, p0=magnitude, degree=0) ### Bending
+magnitude      = 1.e2
 load_Extension = Expression(("t <= tc ? p0*t/tc : 0", "0", "0"), t=0, tc=cutoff_time, p0=magnitude, degree=0) ### Extension
 
 
@@ -54,7 +56,7 @@ config = {
     'mesh'              :   mesh,
     'DirichletBoundary' :   DirichletBoundary,
     'NeumannBoundary'   :   NeumannBoundary,
-    'loading'           :   [load_Bending, load_Extension], ###  load_Bending, [load_Bending, load_Extension] ### default loading (mainly for initialization)
+    'loading'           :   [load_Bending, load_Extension], ###  load_Bending, [load_Bending, load_Extension]
 
     ### Material parameters
     'Young'             :   1.e3,
@@ -63,10 +65,7 @@ config = {
 
     ### Viscous term
     'viscosity'         :   True,
-    'nModes'            :   None,
-    'weights'           :   None,
-    'exponents'         :   None,
-    'split'             :   False, ### split kernels into hydrostatic and deviatoric parts
+    'two_kernels'       :   True,
 
     ### Measurements
     'observer'          :   TipDisplacementObserver,

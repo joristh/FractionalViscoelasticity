@@ -12,10 +12,11 @@ Initial guess
 ==================================================================================================================
 """
 
-alpha = 0.5
-RA = RationalApproximation(alpha=alpha)
-config['nModes'] = RA.nModes
-config['initial_guess'] = [RA.c, RA.d]
+# alpha = 0.5
+# RA = RationalApproximation(alpha=alpha, tol=1.e-4)
+# config['nModes'] = RA.nModes
+# config['initial_guess'] = [RA.c, RA.d]
+config['initial_guess'] = None
 
 
 """
@@ -28,13 +29,13 @@ data_true = np.loadtxt(config['inputfolder']+"data_tip_displacement.csv")
 data = data_true.copy()
 
 ### Optimize on a shorter interval
-data = data[:int(data.size//2)]
+data = data[:int(data.shape[0]//2), :]
 T, nsteps = config['FinalTime'], config['nTimeSteps']
-config['nTimeSteps'] = data.size
-config['FinalTime']  = data.size * (T / nsteps)
+config['nTimeSteps'] = data.shape[0]
+config['FinalTime']  = data.shape[0] * (T / nsteps)
 
 ### Noisy data
-scale = (noise_level/100) * np.abs(data).max()
+scale = (noise_level/100) * np.abs(data).max(axis=0, keepdims=True)
 noise = np.random.normal(loc=0, scale=scale, size=data.shape) ### additive noise
 data  = data + noise
 np.savetxt(config['outputfolder']+"data_tip_displacement_noisy.csv", data)
@@ -62,8 +63,12 @@ print("================================")
 print("       INVERSE PROBLEM")
 print("================================")
 
+if config["two_kernels"]:
+    kernels = [SumOfExponentialsKernel(), SumOfExponentialsKernel()] ### default kernels: alpha=0.5, 8 modes
+else:
+    kernels = [SumOfExponentialsKernel()]
 
-model = ViscoelasticityProblem(**config)
+model = ViscoelasticityProblem(**config, kernels=kernels)
 
 objective = MSE(data=data)
 IP        = InverseProblem(**config)

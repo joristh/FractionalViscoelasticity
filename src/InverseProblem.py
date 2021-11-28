@@ -31,15 +31,15 @@ class InverseProblem:
         tol     = kwargs.get("tol", 1.e-3)
         reg     = kwargs.get("regularization", None)
 
-        Model.fg_inverse = True
-        Model.fg_export  = False
+        Model.flags['inverse']    = True
+        Model.flags['export_vtk'] = False
 
         if initial_guess is not None:
             for i, p in enumerate(Model.parameters()):
                 p.data[:] = torch.tensor(initial_guess[i])
 
         ### print initial parameters
-        self.print_parameters(Model.parameters())
+        # self.print_parameters(Model.parameters())
 
         ### Optimizer
         optimizer = kwargs.get("optimizer", torch.optim.SGD)
@@ -62,12 +62,12 @@ class InverseProblem:
 
         ### Loading type
         loading = kwargs.get("loading", None)
-        if hasattr(loading, '__iter__'): ### multiple loadings case
+        if isinstance(loading, list): ### multiple loadings case
             def Forward():
                 obs = torch.tensor([])
                 for loading_instance in loading:
                     Model.forward_solve(loading=loading_instance)
-                    obs = torch.cat([obs, Model.observations])
+                    obs = torch.cat([obs, Model.observations], dim=-1)
                 return obs
         else:
             def Forward():
@@ -126,16 +126,19 @@ class InverseProblem:
 
         ### ending
         theta_opt = parameters_to_vector(Model.parameters())
-        Model.fg_inverse = False
+        Model.flags['inverse'] = False
         return theta_opt
 
 
 
-    def print_parameters(self, parameters):
-        # print("Parameters: ", [p.tolist() for p in parameters])
-        weights, exponents = [p for p in parameters]
-        print("Weights:   ", weights.tolist())
-        print("Exponents: ", exponents.tolist())
+    # def print_parameters(self, parameters):
+    #     # print("Parameters: ", [p.tolist() for p in parameters])
+    #     params = [p for p in parameters]
+    #     n = len(params) // 2
+    #     weights   = params[:n]
+    #     exponents = params[n:]
+    #     print("Weights:   ", weights.tolist())
+    #     print("Exponents: ", exponents.tolist())
             
 
 

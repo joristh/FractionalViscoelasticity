@@ -14,43 +14,28 @@ Kernel and its rational approximation
 ==================================================================================================================
 """
 
-alpha = 0.7
-RA = RationalApproximation(alpha=alpha)
-config['nModes']    = RA.nModes
-config['weights']   = RA.c
-config['exponents'] = RA.d
+if config['two_kernels']:
+    alpha1 = 0.9
+    RA = RationalApproximation(alpha=alpha1)
+    parameters1 = list(RA.c) + list(RA.d)
+    kernel1 = SumOfExponentialsKernel(parameters=parameters1)
+
+    alpha2 = 0.7
+    RA = RationalApproximation(alpha=alpha2)
+    parameters2 = list(RA.c) + list(RA.d)
+    kernel2 = SumOfExponentialsKernel(parameters=parameters2)
+
+    kernels    = [kernel1, kernel2]
+    parameters = [parameters1, parameters2]
+
+else:
+    alpha = 0.7
+    RA = RationalApproximation(alpha=alpha)
+    parameters = list(RA.c) + list(RA.d)
+    kernel  = SumOfExponentialsKernel(parameters=parameters)
+    kernels = [kernel]
 
 
-print()
-print()
-print("================================")
-print("       SUM-OF-EXPONENTIALS")
-print("================================")
-
-print("nModes    :", config['nModes'])
-print("Exponents :", config['exponents'])
-print("Weights   :", config['weights'])
-
-
-### Compare kernels
-
-from math import gamma
-def kernel(t):
-    k = t**(alpha-1) / gamma(alpha)
-    return k
-
-def kernel_exp(t):
-    k = RA.appx_ker(t)
-    return k
-
-# t = np.logspace(-2, 3, 100)
-
-# plt.figure()
-# plt.plot(t, kernel_exp(t), "r-", label="sum-of-exponentials")
-# plt.plot(t, kernel(t), "b--", label="fractional")
-# plt.xscale('log')
-# plt.legend()
-# plt.show()
 
 
 
@@ -66,15 +51,15 @@ print("================================")
 print("       FORWARD RUN")
 print("================================")
 
-Model = ViscoelasticityProblem(**config)
+Model = ViscoelasticityProblem(**config, kernels=kernels)
 
 loading = config.get("loading", None)
-if hasattr(loading, '__iter__'): ### multiple loadings case
+if isinstance(loading, list): ### multiple loadings case
     def Forward():
         obs = torch.tensor([])
         for loading_instance in loading:
             Model.forward_solve(loading=loading_instance)
-            obs = torch.cat([obs, Model.observations])
+            obs = torch.cat([obs, Model.observations], dim=-1)
         return obs.numpy()
 else:
     def Forward():
@@ -87,7 +72,7 @@ data = Forward()
 if fg_export: ### write data to file
     # data = model.observations.numpy()
     np.savetxt(config['outputfolder']+"data_tip_displacement.csv", data)
-    save_data(config['outputfolder']+"target_model", Model, other=[[config['weights'], config['exponents']]])
+    save_data(config['outputfolder']+"target_model", Model, other=[parameters])
 
 
 """
@@ -106,7 +91,7 @@ with torch.no_grad():
         plt.title('Energies')
         plt.plot(Model.time_steps, Model.Energy_elastic, "o-", color='blue', label="Elastic energy")
         plt.plot(Model.time_steps, Model.Energy_kinetic, "o-", color='orange', label="Kinetic energy")
-        plt.plot(Model.time_steps, Model.Energy_elastic+Model.Energy_kinetic, "o-", color='red', label="Total energy")
+        # plt.plot(Model.time_steps, Model.Energy_elastic+Model.Energy_kinetic, "o-", color='red', label="Total energy")
         plt.grid(True, which='both')
         plt.legend()
 
