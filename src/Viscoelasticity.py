@@ -29,12 +29,12 @@ class ViscoelasticityProblem(torch_fenics.FEniCSModule):
     def __init__(self, **kwargs):
         super().__init__()
 
-        # self.verbose      = kwargs.get("verbose", False)
-        # self.fg_export_vtk= kwargs.get("export_vtk", None)
-        # self.inputfolder  = kwargs.get("inputfolder", "./")
-        # self.outputfolder = kwargs.get("outputfolder", "./")
-        # self.fg_viscosity = kwargs.get("viscosity", False)
-        # self.fg_inverse   = kwargs.get("InverseProblem", False)
+        self.verbose      = kwargs.get("verbose", False)
+        self.fg_export_vtk= kwargs.get("export_vtk", None)
+        self.inputfolder  = kwargs.get("inputfolder", "./")
+        self.outputfolder = kwargs.get("outputfolder", "./")
+        self.fg_viscosity = kwargs.get("viscosity", False)
+        self.fg_inverse   = kwargs.get("InverseProblem", False)
 
         self.flags = {
             'verbose'       :   kwargs.get("verbose", False),

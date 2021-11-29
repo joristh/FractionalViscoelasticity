@@ -18,7 +18,7 @@ def save_data(filename, model, other=[]): ### filename = full/relative path w/o 
         data = list(pick_model_data(model)) + other
         pickle.dump(data, filehandler)
 
-    if model.verbose:
+    if model.flags['verbose']:
         print("Object data is saved to {0:s}".format(filename))
 
 
