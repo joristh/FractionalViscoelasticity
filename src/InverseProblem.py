@@ -26,10 +26,11 @@ class InverseProblem:
 
 
     def calibrate(self, Model, objective, initial_guess=None, **kwargs):
-        verbose = kwargs.get("verbose", False)
-        lr      = kwargs.get("lr",  0.5)
-        tol     = kwargs.get("tol", 1.e-3)
-        reg     = kwargs.get("regularization", None)
+        verbose   = kwargs.get("verbose", False)
+        lr        = kwargs.get("lr",  1.)
+        tol       = kwargs.get("tol", 1.e-3)
+        max_iter  = kwargs.get("max_iter", 20)
+        reg       = kwargs.get("regularization", None)
 
         Model.flags['inverse']    = True
         Model.flags['export_vtk'] = False
@@ -38,25 +39,133 @@ class InverseProblem:
             for i, p in enumerate(Model.parameters()):
                 p.data[:] = torch.tensor(initial_guess[i])
 
-        ### print initial parameters
-        # self.print_parameters(Model.parameters())
+        # ### print initial parameters
+        # # self.print_parameters(Model.parameters())
 
-        ### Optimizer
+        # ### Optimizer
+        # optimizer = kwargs.get("optimizer", torch.optim.SGD)
+        # if optimizer is torch.optim.SGD:
+        #     self.Optimizer = optimizer(Model.parameters(), lr=lr)
+        # elif optimizer is torch.optim.LBFGS:
+        #     self.Optimizer = optimizer(Model.parameters(), lr=lr, line_search_fn='strong_wolfe')
+        #                         # tolerance_grad=tol,
+        #                         # tolerance_change=tol
+        #                         # )
+
+        # ### Convergence history
+        # self.convergence_history = {
+        #     'loss'      :   [],
+        #     'grad'      :   [],
+        #     'loss_all'  :   [],  ### values including internal BFGS and line search iterations
+        #     'grad_all'  :   [],  ### same for the grad norm
+        # }
+
+
+        # ### Loading type
+        # loading = kwargs.get("loading", None)
+        # if isinstance(loading, list): ### multiple loadings case
+        #     def Forward():
+        #         obs = torch.tensor([])
+        #         for loading_instance in loading:
+        #             Model.forward_solve(loading=loading_instance)
+        #             obs = torch.cat([obs, Model.observations], dim=-1)
+        #         return obs
+        # else:
+        #     def Forward():
+        #         Model.forward_solve()
+        #         obs = Model.observations
+        #         return obs
+
+
+        # def get_grad():
+        #     return torch.cat([p.grad for p in Model.parameters()])
+
+
+        # def closure():
+        #     self.Optimizer.zero_grad()
+        #     theta     = parameters_to_vector(Model.parameters())
+        #     obs       = Forward()
+        #     self.loss = objective(obs)
+        #     if reg: ### regularization term
+        #         self.loss = self.loss + reg(theta)
+        #     self.loss.backward()
+        #     self.grad = get_grad()
+        #     grad_norm = self.grad.norm(p=float('inf'))
+        #     print('loss = ', self.loss.item())
+        #     print('grad = ', grad_norm.item())
+        #     self.convergence_history['loss_all'].append(self.loss.item())
+        #     self.convergence_history['grad_all'].append(grad_norm.item())
+        #     return self.loss
+
+
+
+
+        # ### Optimization loop
+        # nepochs = kwargs.get("nepochs", 10)
+        # for epoch in range(nepochs):
+        #     self.Optimizer.step(closure)
+        #     grad_norm = self.grad.norm(p=float('inf'))
+
+        #     ### convergence monitor
+        #     if verbose:
+        #         print()
+        #         print('=================================')
+        #         print('-> Epoch {0:d}/{1:d}'.format(epoch+1, nepochs))
+        #         print('=================================')
+        #         print('loss = ', self.loss.item())
+        #         print('grad = ', grad_norm.item())
+        #         print('=================================')
+        #         print()
+        #         print()
+
+        #     ### store history
+        #     self.convergence_history['loss'].append(self.loss.item())
+        #     self.convergence_history['grad'].append(grad_norm.item())
+
+        #     ### stopping criterion
+        #     if grad_norm < tol: break
+
+        # ### ending
+        # theta_opt = parameters_to_vector(Model.parameters())
+        # Model.flags['inverse'] = False
+        # return theta_opt
+
+
         optimizer = kwargs.get("optimizer", torch.optim.SGD)
         if optimizer is torch.optim.SGD:
-            self.Optimizer = optimizer(Model.parameters(), lr=lr)
+            if verbose:
+                print()
+                print('=================================')
+                print('        Gradient descent         ')
+                print('=================================')
+                print()
+            nepochs = max_iter
+            optimization_settings = {
+                'lr'    :   lr,
+            }
         elif optimizer is torch.optim.LBFGS:
-            self.Optimizer = optimizer(Model.parameters(), lr=lr, line_search_fn='strong_wolfe')
-                                # tolerance_grad=tol,
-                                # tolerance_change=tol
-                                # )
+            if verbose:
+                print()
+                print('=================================')
+                print('             LBFGS               ')
+                print('=================================')
+                print()
+            nepochs = kwargs.get("nepochs", 1)
+            optimization_settings = {
+                'lr'                :   lr,
+                'line_search_fn'    :   kwargs.get('line_search_fn', 'strong_wolfe'),
+                'max_iter'          :   max_iter,
+                'tolerance_grad'    :   tol,
+                # 'tolerance_change'  :   tol,
+                'history_size'      :   kwargs.get('history_size', 100),
+            }       
+        self.Optimizer = optimizer(Model.parameters(), **optimization_settings)
 
         ### Convergence history
         self.convergence_history = {
             'loss'      :   [],
             'grad'      :   [],
-            'loss_all'  :   [],  ### values including internal BFGS and line search iterations
-            'grad_all'  :   [],  ### same for the grad norm
+            'parameters':   [],
         }
 
 
@@ -79,54 +188,51 @@ class InverseProblem:
         def get_grad():
             return torch.cat([p.grad for p in Model.parameters()])
 
-
+        self.iter = 0
         def closure():
             self.Optimizer.zero_grad()
-            theta     = parameters_to_vector(Model.parameters())
             obs       = Forward()
             self.loss = objective(obs)
             if reg: ### regularization term
+                theta     = parameters_to_vector(Model.parameters())
                 self.loss = self.loss + reg(theta)
             self.loss.backward()
             self.grad = get_grad()
             grad_norm = self.grad.norm(p=float('inf'))
-            print('loss = ', self.loss.item())
-            print('grad = ', grad_norm.item())
-            self.convergence_history['loss_all'].append(self.loss.item())
-            self.convergence_history['grad_all'].append(grad_norm.item())
-            return self.loss
-
-
-
-
-        ### Optimization loop
-        nepochs = kwargs.get("nepochs", 10)
-        for epoch in range(nepochs):
-            self.Optimizer.step(closure)
-            grad_norm = self.grad.norm(p=float('inf'))
 
             ### convergence monitor
+            self.iter = self.iter + 1
             if verbose:
                 print()
                 print('=================================')
-                print('-> Epoch {0:d}/{1:d}'.format(epoch+1, nepochs))
+                print('-> Iteration {0:d}/{1:d}'.format(self.iter, max_iter))
                 print('=================================')
                 print('loss = ', self.loss.item())
                 print('grad = ', grad_norm.item())
                 print('=================================')
+                # print('parameters:')                
+                # self.print_parameters(Model.parameters())
+                # print('=================================')
                 print()
                 print()
 
-            ### store history
+            ### store convergence history
             self.convergence_history['loss'].append(self.loss.item())
             self.convergence_history['grad'].append(grad_norm.item())
+            self.convergence_history['parameters'].append([list(p) for p in Model.parameters()])
 
-            ### stopping criterion
-            if grad_norm < tol: break
+            return self.loss
+
+
+        ### Minimization
+        for epoch in range(nepochs):
+            self.Optimizer.step(closure)
+
 
         ### ending
-        theta_opt = parameters_to_vector(Model.parameters())
-        Model.flags['inverse'] = False
+        # theta_opt = parameters_to_vector(Model.parameters())
+        theta_opt = [list(p) for p in Model.parameters()]
+        Model.fg_inverse = False
         return theta_opt
 
 

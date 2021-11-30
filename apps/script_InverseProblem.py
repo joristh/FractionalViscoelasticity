@@ -35,7 +35,7 @@ config['nTimeSteps'] = data.shape[0]
 config['FinalTime']  = data.shape[0] * (T / nsteps)
 
 ### Noisy data
-scale = (noise_level/100) * np.abs(data).max(axis=0, keepdims=True)
+scale = (noise_level/100) * np.abs(data) #.max(axis=0, keepdims=True)
 noise = np.random.normal(loc=0, scale=scale, size=data.shape) ### additive noise
 data  = data + noise
 np.savetxt(config['outputfolder']+"data_tip_displacement_noisy.csv", data)
@@ -74,6 +74,7 @@ objective = MSE(data=data)
 IP        = InverseProblem(**config)
 
 theta_opt = IP.calibrate(model, objective, **config)
+theta_opt = (np.array(theta_opt)**2).tolist()
 
 print("Optimal parameters :", theta_opt)
 print("Final loss         :", IP.loss)
@@ -112,7 +113,7 @@ with torch.no_grad():
     plt.title('Tip displacement')
     plt.plot(model.time_steps, model.observations, "r-",  label="prediction")
     plt.plot(model.time_steps, data_true, "b--", label="truth")
-    plt.plot(model.time_steps[:data.size], data, "bo", label="data")
+    plt.plot(model.time_steps[:data.shape[0]], data[...,0], "bo", label="data")
     plt.legend()
 
     if not model.fg_inverse:

@@ -77,6 +77,8 @@ class SumOfExponentialsKernel(AbstractKernel):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        self.eval_func     = np.vectorize(self._eval_func)
+        self.eval_spectrum = np.vectorize(self._eval_spectrum)
 
 
     ### Initialize parameters from a rational approximation
@@ -105,14 +107,14 @@ class SumOfExponentialsKernel(AbstractKernel):
     ==================================================================================================================
     """
 
-    @np.vectorize
-    def __call__(self, t):
+    # @np.vectorize
+    def _eval_func(self, t):
         c, d = self.weights.detach().numpy(), self.exponents.detach().numpy()
         return np.sum(c * np.exp(-d*t))
 
 
-    @np.vectorize
-    def eval_spectrum(self, z):
+    # @np.vectorize
+    def _eval_spectrum(self, z):
         c, d = self.weights.detach().numpy(), self.exponents.detach().numpy()     
         return np.sum(c / (z + d))
 

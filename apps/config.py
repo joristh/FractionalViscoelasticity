@@ -73,8 +73,8 @@ config = {
 
     ### Optimization
     'optimizer'         :   torch.optim.LBFGS, ### E.g., torch.optim.SGD, torch.optim.LBFGS (recommended), ...
-    'nepochs'           :   10,
-    'tol'               :   1.e-5,
+    'max_iter'          :   100,
+    'tol'               :   1.e-4,
     'regularization'    :   None,  ### your regularization function, e.g., "reg", or None/False for no regularization
     'initial_guess'     :   None,  ### initial guess for parameters calibration: (weights, exponents)
 }
