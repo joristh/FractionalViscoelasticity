@@ -18,6 +18,8 @@ import matplotlib.pyplot as plt
 from .Kernels import SumOfExponentialsKernel_Torch
 # from .reduced_function import ReducedFunctionTorch
 
+from mpi4py import MPI
+
 
 """
 ==================================================================================================================
@@ -555,15 +557,21 @@ Default linear solver
 """
 
 def set_linSolver():
-	# solver = dl.PETScLUSolver("mumps")
-	# solver = dl.PETScKrylovSolver("bicgstab", "amg")
-	# solver = dl.PETScKrylovSolver("gmres", "amg")
-	# solver = PETScKrylovSolver("cg", "ilu")
-	solver = KrylovSolver("cg", "ilu")
-	solver.parameters["maximum_iterations"] = 1000
-	solver.parameters["relative_tolerance"] = 1.e-6
-	solver.parameters["absolute_tolerance"] = 1.e-6
-	solver.parameters["error_on_nonconvergence"] = True
-	solver.parameters["nonzero_initial_guess"] = False
-	solver.parameters["monitor_convergence"] = False
-	return solver
+    # solver = dl.PETScLUSolver("mumps")
+    # solver = dl.PETScKrylovSolver("bicgstab", "amg")
+    # solver = dl.PETScKrylovSolver("gmres", "amg")
+    # solver = PETScKrylovSolver("cg", "ilu")
+
+    # choose preconditioner depending on single-core/multiprocessing
+    if MPI.COMM_WORLD.Get_size()==1:
+        solver = KrylovSolver("cg", "ilu")
+    else:
+        solver = KrylovSolver("cg", "hypre_euclid")
+
+    solver.parameters["maximum_iterations"] = 1000
+    solver.parameters["relative_tolerance"] = 1.e-6
+    solver.parameters["absolute_tolerance"] = 1.e-6
+    solver.parameters["error_on_nonconvergence"] = True
+    solver.parameters["nonzero_initial_guess"] = False
+    solver.parameters["monitor_convergence"] = False
+    return solver
