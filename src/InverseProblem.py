@@ -38,7 +38,7 @@ class InverseProblem:
 
         if initial_guess is not None:
             for i, p in enumerate(Model.parameters()):
-                p.data[:] = torch.tensor(initial_guess[i])
+                p.data[:] = torch.tensor(initial_guess[i]).sqrt()
 
         ### print initial parameters
         print('Number of parameters =', sum(p.numel() for p in Model.parameters()))
@@ -153,7 +153,7 @@ class InverseProblem:
 
 
         ### ending
-        theta_opt = parameters_to_vector(Model.parameters())
+        theta_opt = parameters_to_vector(Model.parameters()).square()
         Model.fg_inverse = False
         return theta_opt
 
@@ -162,7 +162,7 @@ class InverseProblem:
     def print_parameters(self, parameters):
         # print("Parameters: ", [p.tolist() for p in parameters])
         if self.fg_split_kernels:
-            p = parameters_to_vector(parameters)
+            p = parameters_to_vector(parameters).square()
             n = len(p) // 4
             weights, exponents = p[:n], p[n:2*n]
             print("Ker 1: Weights:   ", weights.tolist())
@@ -171,7 +171,7 @@ class InverseProblem:
             print("Ker 2: Weights:   ", weights.tolist())
             print("Ker 2: Exponents: ", exponents.tolist())
         else:
-            weights, exponents = [p for p in parameters]
+            weights, exponents = [p.square() for p in parameters]
             print("Weights:   ", weights.tolist())
             print("Exponents: ", exponents.tolist())
             

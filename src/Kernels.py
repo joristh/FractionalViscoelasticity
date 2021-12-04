@@ -1,6 +1,6 @@
-
 import torch
 from torch import nn
+import numpy as np
 
 
 
@@ -136,11 +136,11 @@ class SumOfExponentialsKernel_Torch(nn.Module):
 
     def set_Weights(self, values):
         for k in range(self.nModes):
-            self.Weights.data[k] = values[k]
+            self.Weights.data[k] = np.sqrt(values[k])
 
     def set_Exponents(self, values):
         for k in range(self.nModes):
-            self.Exponents.data[k] = values[k]
+            self.Exponents.data[k] = np.sqrt(values[k])
 
 
     def update_parameters(self, parameters):
