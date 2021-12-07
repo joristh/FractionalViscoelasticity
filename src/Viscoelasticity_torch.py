@@ -559,7 +559,8 @@ def set_linSolver():
 	# solver = dl.PETScKrylovSolver("bicgstab", "amg")
 	# solver = dl.PETScKrylovSolver("gmres", "amg")
 	# solver = PETScKrylovSolver("cg", "ilu")
-	solver = KrylovSolver("cg", "ilu")
+	# solver = KrylovSolver("cg", "ilu")
+	solver = KrylovSolver("cg", "hypre_euclid")
 	solver.parameters["maximum_iterations"] = 1000
 	solver.parameters["relative_tolerance"] = 1.e-6
 	solver.parameters["absolute_tolerance"] = 1.e-6
