@@ -42,17 +42,18 @@ def kernel_frac_init(t):
     return k
 
 RA = RationalApproximation(alpha=alpha_init)
-c0, d0 = RA.c, RA.d
+c0, d0, cinf0 = RA.c, RA.d, RA.c_inf
 @np.vectorize
 def kernel_exp_init(t):
     return np.sum(c0 * np.exp(-d0*t))
 
-c1, d1 = np.array(theta_true)
+c1, d1, cinf1 = np.array(theta_true, dtype=object)
 @np.vectorize
 def kernel_exp_true(t):
     return np.sum(c1 * np.exp(-d1*t))
 
-c2, d2 = np.array(theta_pred.square().detach()).reshape([2,-1])
+cinf2 = float(theta_pred.detach()[-1])
+c2, d2 = np.array(theta_pred.detach())[:-1].reshape([2,-1])
 @np.vectorize
 def kernel_exp_pred(t):
     return np.sum(c2 * np.exp(-d2*t))
@@ -169,8 +170,9 @@ with torch.no_grad():
     ==================================================================================================================
     """
     parameters = convergence_history["parameters"]
+    parameters = [p[:-1] for p in parameters]
     nsteps = len(parameters)
-    p = torch.stack(parameters).square().reshape([nsteps,2,-1]).detach().numpy()
+    p = torch.stack(parameters).reshape([nsteps,2,-1]).detach().numpy()
 
     plt.figure('Parameters convergence: Weights', **figure_settings)
     # plt.title('Parameters convergence: Weights')
