@@ -19,6 +19,7 @@ RA = RationalApproximation(alpha=alpha)
 config['nModes']    = RA.nModes
 config['weights']   = RA.c
 config['exponents'] = RA.d
+config['infmode']   = RA.c_inf
 
 # config['nModes']    = 8
 # config['weights']   = [1.0735e-01, 1.7315e-01, 3.6693e-01, 8.8820e-01, 1.0860e+00, 2.2113e+00, 6.1638e+00, 2.3872e+01]
@@ -40,6 +41,7 @@ print("================================")
 print("nModes    :", config['nModes'])
 print("Exponents :", config['exponents'])
 print("Weights   :", config['weights'])
+print("Infmode   :", config['infmode'])
 
 
 ### Compare kernels
@@ -97,7 +99,7 @@ data = Forward()
 if fg_export: ### write data to file
     # data = model.observations.numpy()
     np.savetxt(config['outputfolder']+"data_tip_displacement.csv", data)
-    save_data(config['outputfolder']+"target_model", Model, other=[[config['weights'], config['exponents']]])
+    save_data(config['outputfolder']+"target_model", Model, other=[[config['weights'], config['exponents'], config['infmode']]])
 
 
 """

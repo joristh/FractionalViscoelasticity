@@ -18,7 +18,7 @@ config['nModes'] = RA.nModes
 if config['split']:
     config['initial_guess'] = [RA.c, RA.d, RA.c, RA.d]
 else:
-    config['initial_guess'] = [RA.c, RA.d]
+    config['initial_guess'] = [RA.c, RA.d, RA.c_inf]
 
 
 """

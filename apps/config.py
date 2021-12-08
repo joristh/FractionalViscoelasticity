@@ -66,6 +66,7 @@ config = {
     'nModes'            :   None,
     'weights'           :   None,
     'exponents'         :   None,
+    'infmode'           :   None,
     'split'             :   False, ### split kernels into hydrostatic and deviatoric parts
 
     ### Measurements
@@ -77,6 +78,6 @@ config = {
     'max_iter'          :   100,
     'tol'               :   1.e-5,
     'regularization'    :   None,  ### your regularization function, e.g., "reg", or None/False for no regularization
-    'initial_guess'     :   None,  ### initial guess for parameters calibration: (weights, exponents)
+    'initial_guess'     :   None,  ### initial guess for parameters calibration: (weights, exponents, infmode)
     'line_search_fn'    :   'strong_wolfe', ### None, 'strong_wolfe',
 }

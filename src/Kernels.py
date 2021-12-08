@@ -119,12 +119,19 @@ class SumOfExponentialsKernel_Torch(nn.Module):
         self.nModes    = kwargs.get("nModes", 1)
         self.Weights   = nn.Parameter(torch.ones([self.nModes], dtype=torch.float64))
         self.Exponents = nn.Parameter(torch.zeros([self.nModes], dtype=torch.float64))
+        self.Infmode   = nn.Parameter(torch.zeros(1, dtype=torch.float64))
 
         weights = kwargs.get("weights", None)
         if weights is not None: self.set_Weights(weights)
 
         exponents = kwargs.get("exponents", None)
         if exponents is not None: self.set_Exponents(exponents)
+
+        infmode = kwargs.get("infmode", None)
+        if infmode is not None:
+            self.set_Infmode(infmode)
+        else:
+            self.Infmode.requires_grad_(False)
 
     
     def __call__(self, t):       
@@ -142,11 +149,22 @@ class SumOfExponentialsKernel_Torch(nn.Module):
         for k in range(self.nModes):
             self.Exponents.data[k] = np.sqrt(values[k])
 
+    def set_Infmode(self, value):
+        self.Infmode.data[0] = np.sqrt(value)
+
 
     def update_parameters(self, parameters):
-        weights   = parameters[:self.nModes]
-        exponents = parameters[self.nModes:]
+
+        weights = parameters[:self.nModes]
         self.set_Weights(weights)
+
+        if self.Infmode.requires_grad == False:    
+            exponents = parameters[self.nModes:]
+        else:
+            exponents = parameters[self.nModes:-1]
+            infmode   = parameters[-1]
+            self.set_Infmode(infmode)
+        
         self.set_Exponents(exponents)
         self.compute_coefficients(self.h)
 
@@ -165,7 +183,7 @@ class SumOfExponentialsKernel_Torch(nn.Module):
         self.coef_ak = (1 + 2*lgh) / den
         self.coef_bk = ( (1-theta)*(1+lgh) - theta * h/2 ) / den
         self.coef_ck = 1 / den
-        self.coef_a  = ( self.wk * self.coef_ak ).sum()
+        self.coef_a  = ( self.wk * self.coef_ak ).sum() + 2/h*self.Infmode.square()
         self.coef_c  = ( self.wk * self.coef_ck ).sum()
 
 

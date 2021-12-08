@@ -38,7 +38,9 @@ class InverseProblem:
 
         if initial_guess is not None:
             for i, p in enumerate(Model.parameters()):
+                if i>=len(initial_guess): break
                 p.data[:] = torch.tensor(initial_guess[i]).sqrt()
+                p.requires_grad_(True)
 
         ### print initial parameters
         print('Number of parameters =', sum(p.numel() for p in Model.parameters()))
@@ -101,7 +103,7 @@ class InverseProblem:
 
 
         def get_grad():
-            return torch.cat([p.grad for p in Model.parameters()])
+            return torch.cat([p.grad for p in Model.parameters() if p.requires_grad==True])
 
         self.iter = 0
         def closure():
@@ -163,10 +165,13 @@ class InverseProblem:
             print("Ker 2: Weights:   ", weights.tolist())
             print("Ker 2: Exponents: ", exponents.tolist())
         else:
-            weights, exponents = [p.square() for p in parameters]
+            weights, exponents, infmode = [p.square() for p in parameters]
             print("Weights:   ", weights.tolist())
             print("Exponents: ", exponents.tolist())
-            
+            if infmode.requires_grad == False:
+                print("Infmode:   ", None)
+            else:
+                print("Infmode:   ", infmode.tolist())
 
 
 
