@@ -170,9 +170,11 @@ with torch.no_grad():
     ==================================================================================================================
     """
     parameters = convergence_history["parameters"]
+    infmode = [p[-1] for p in parameters]
     parameters = [p[:-1] for p in parameters]
     nsteps = len(parameters)
     p = torch.stack(parameters).reshape([nsteps,2,-1]).detach().numpy()
+    inf = torch.stack(infmode).detach().numpy()
 
     plt.figure('Parameters convergence: Weights', **figure_settings)
     # plt.title('Parameters convergence: Weights')
@@ -198,6 +200,26 @@ with torch.no_grad():
     tikzplotlib.save(tikz_folder+"plt_exponents_convergence.tex", **tikz_settings)
 
 
+    plt.figure('Parameters convergence: Infmode', **figure_settings)
+    # plt.title('Parameters convergence: Infmode')
+    plt.plot(inf, label=r'$w_\infty$', **plot_settings)
+    # plt.yscale('log')
+    plt.ylabel(r"$w_\infty$")
+    plt.xlabel(r"$iteration$")
+    plt.legend()
+
+    tikzplotlib.save(tikz_folder+"plt_infmode_convergence.tex", **tikz_settings)
+
+    loss = convergence_history["loss"]
+    plt.figure('Loss', **figure_settings)
+    # plt.title('Loss')
+    plt.plot(loss, "o-", label=r'Loss', **plot_settings)
+    plt.yscale('log')
+    plt.ylabel(r"Loss")
+    plt.xlabel(r"$iteration$")
+    plt.legend()
+
+    tikzplotlib.save(tikz_folder+"plt_loss.tex", **tikz_settings)
     """
     ==================================================================================================================
     """
