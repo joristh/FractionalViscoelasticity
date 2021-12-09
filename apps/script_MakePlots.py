@@ -52,7 +52,7 @@ c1, d1 = np.array(theta_true)
 def kernel_exp_true(t):
     return np.sum(c1 * np.exp(-d1*t))
 
-c2, d2 = np.array(theta_pred.square().detach()).reshape([2,-1])
+c2, d2 = np.array(theta_pred.detach()).reshape([2,-1])
 @np.vectorize
 def kernel_exp_pred(t):
     return np.sum(c2 * np.exp(-d2*t))
@@ -170,7 +170,7 @@ with torch.no_grad():
     """
     parameters = convergence_history["parameters"]
     nsteps = len(parameters)
-    p = torch.stack(parameters).square().reshape([nsteps,2,-1]).detach().numpy()
+    p = torch.stack(parameters).reshape([nsteps,2,-1]).detach().numpy()
 
     plt.figure('Parameters convergence: Weights', **figure_settings)
     # plt.title('Parameters convergence: Weights')
