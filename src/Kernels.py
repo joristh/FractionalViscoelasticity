@@ -1,6 +1,5 @@
 import torch
 from torch import nn
-import numpy as np
 
 
 
@@ -119,7 +118,7 @@ class SumOfExponentialsKernel_Torch(nn.Module):
         self.nModes    = kwargs.get("nModes", 1)
         self.Weights   = nn.Parameter(torch.ones([self.nModes], dtype=torch.float64))
         self.Exponents = nn.Parameter(torch.zeros([self.nModes], dtype=torch.float64))
-        self.Infmode   = nn.Parameter(torch.zeros(1, dtype=torch.float64))
+        self.InfMode   = nn.Parameter(torch.special.logit(torch.zeros(1, dtype=torch.float64)))
 
         weights = kwargs.get("weights", None)
         if weights is not None: self.set_Weights(weights)
@@ -127,12 +126,9 @@ class SumOfExponentialsKernel_Torch(nn.Module):
         exponents = kwargs.get("exponents", None)
         if exponents is not None: self.set_Exponents(exponents)
 
-        infmode = kwargs.get("infmode", None)
-        if infmode is not None:
-            self.set_Infmode(infmode)
-        else:
-            self.Infmode.requires_grad_(False)
-
+        inf_mode = kwargs.get("inf_mode", None)
+        if inf_mode is not None: self.set_InfMode(inf_mode)
+        
     
     def __call__(self, t):       
         return torch.sum( self.Weights * torch.exp(-t*self.Exponents) )
@@ -149,23 +145,17 @@ class SumOfExponentialsKernel_Torch(nn.Module):
         for k in range(self.nModes):
             self.Exponents.data[k] = np.sqrt(values[k])
 
-    def set_Infmode(self, value):
-        self.Infmode.data[0] = np.sqrt(value)
+    def set_InfMode(self, value):
+        self.InfMode.data[0] = torch.special.logit(torch.tensor(value))
 
 
     def update_parameters(self, parameters):
-
-        weights = parameters[:self.nModes]
+        weights   = parameters[:self.nModes]
+        exponents = parameters[self.nModes:-1]
+        inf_mode  = parameters[-1]
         self.set_Weights(weights)
-
-        if self.Infmode.requires_grad == False:    
-            exponents = parameters[self.nModes:]
-        else:
-            exponents = parameters[self.nModes:-1]
-            infmode   = parameters[-1]
-            self.set_Infmode(infmode)
-        
         self.set_Exponents(exponents)
+        self.set_InfMode(inf_mode)
         self.compute_coefficients(self.h)
 
 
@@ -174,7 +164,6 @@ class SumOfExponentialsKernel_Torch(nn.Module):
             h = self.h
         else:
             self.h = h
-        # lmbda   = self.Exponents.abs()
         lmbda   = self.Exponents.square()
         theta   = lmbda / (1 + lmbda)
         self.wk = self.Weights.square() * (1-theta)
@@ -183,14 +172,13 @@ class SumOfExponentialsKernel_Torch(nn.Module):
         self.coef_ak = (1 + 2*lgh) / den
         self.coef_bk = ( (1-theta)*(1+lgh) - theta * h/2 ) / den
         self.coef_ck = 1 / den
-        self.coef_a  = ( self.wk * self.coef_ak ).sum() + 2/h*self.Infmode.square()
+        self.coef_a  = ( self.wk * self.coef_ak ).sum() + 2/h*torch.special.expit(self.InfMode)
         self.coef_c  = ( self.wk * self.coef_ck ).sum()
 
 
     def init(self, h=None, gamma=1):
         self.compute_coefficients(h, gamma)
         self.modes = None
-        
 
 
     def update_history(self, F):

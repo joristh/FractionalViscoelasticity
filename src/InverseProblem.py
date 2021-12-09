@@ -37,13 +37,20 @@ class InverseProblem:
         self.fg_split_kernels = Model.fg_split_kernels
 
         if initial_guess is not None:
-            for i, p in enumerate(Model.parameters()):
-                if i>=len(initial_guess): break
-                p.data[:] = torch.tensor(initial_guess[i]).sqrt()
-                p.requires_grad_(True)
+            #for i, p in enumerate(Model.parameters()):
+            #    if i>=len(initial_guess): break
+            #    p.data[:] = torch.tensor(initial_guess[i]).sqrt()
+            #    p.requires_grad_(True)
+            weights, exponents, infmode = [p for p in Model.parameters()]
+            weights.data[:] = torch.tensor(initial_guess[0]).sqrt()
+            exponents.data[:] = torch.tensor(initial_guess[1]).sqrt()
+            if len(initial_guess)%2==1:
+                infmode.requires_grad_(True)
+                infmode.data[:] = torch.special.logit(torch.tensor(initial_guess[2]))
+
 
         ### print initial parameters
-        print('Number of parameters =', sum(p.numel() for p in Model.parameters()))
+        print('Number of parameters =', sum(p.numel() for p in Model.parameters() if p.requires_grad==True))
         print('Initial parameters:')
         self.print_parameters(Model.parameters())
 
@@ -136,7 +143,10 @@ class InverseProblem:
             ### store convergence history
             self.convergence_history['loss'].append(self.loss.item())
             self.convergence_history['grad'].append(grad_norm.item())
-            self.convergence_history['parameters'].append(parameters_to_vector(Model.parameters()))
+            theta = parameters_to_vector(Model.parameters())
+            theta[:-1] = theta[:-1].square()
+            theta[-1]  = torch.special.expit(theta[-1])
+            self.convergence_history['parameters'].append(theta)
 
             return self.loss
 
@@ -147,7 +157,9 @@ class InverseProblem:
 
 
         ### ending
-        theta_opt = parameters_to_vector(Model.parameters()).square()
+        theta_opt = parameters_to_vector(Model.parameters())
+        theta_opt[:-1] = theta_opt[:-1].square()
+        theta_opt[-1]  = torch.special.expit(theta_opt[-1])
         Model.fg_inverse = False
         return theta_opt
 
@@ -165,13 +177,13 @@ class InverseProblem:
             print("Ker 2: Weights:   ", weights.tolist())
             print("Ker 2: Exponents: ", exponents.tolist())
         else:
-            weights, exponents, infmode = [p.square() for p in parameters]
-            print("Weights:   ", weights.tolist())
-            print("Exponents: ", exponents.tolist())
+            weights, exponents, infmode = [p for p in parameters]
+            print("Weights:   ", weights.square().tolist())
+            print("Exponents: ", exponents.square().tolist())
             if infmode.requires_grad == False:
                 print("Infmode:   ", None)
             else:
-                print("Infmode:   ", infmode.tolist())
+                print("Infmode:   ", torch.special.expit(infmode).tolist())
 
 
 
