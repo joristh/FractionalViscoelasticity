@@ -20,7 +20,7 @@ config['exponents'] = RA.d
 path = config['outputfolder']
 
 n_steps = 10**order
-config['nTimeSteps'] = n_steps
+config['nTimeSteps'] = n_steps*config['FinalTime']
 
 #print(f"START: dt={1/n_steps} started")
 
