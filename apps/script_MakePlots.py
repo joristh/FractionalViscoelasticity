@@ -211,11 +211,13 @@ with torch.no_grad():
     tikzplotlib.save(tikz_folder+"plt_infmode_convergence.tex", **tikz_settings)
 
     loss = convergence_history["loss"]
-    plt.figure('Loss', **figure_settings)
+    plt.figure('Loss and Gradient', **figure_settings)
+    grad = convergence_history["grad"]
     # plt.title('Loss')
     plt.plot(loss, "o-", label=r'Loss', **plot_settings)
+    plt.plot(grad, "s-", label=r'Gradient', **plot_settings)
     plt.yscale('log')
-    plt.ylabel(r"Loss")
+    plt.ylabel(r"")
     plt.xlabel(r"$iteration$")
     plt.legend()
 
