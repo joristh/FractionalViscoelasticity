@@ -31,11 +31,16 @@ sol, nsteps = sol[idx], nsteps[idx]
 
 dt = config['FinalTime']/nsteps
 
-t = np.linspace(0, config['FinalTime'], 100)
-stride = []
-for i in range(len(nsteps)):
-    stride.append(int(nsteps[i]/100))
-    plt.plot(t, sol[i][::stride[i]], label=f"dt = {dt[i]}")
+t = np.linspace(0, config['FinalTime'], 1000)
+stride_list = []
+for i in range(0, len(nsteps)):
+    if i==0:
+        stride = int(nsteps[i]/100)
+        plt.plot(t[::10], sol[i][::stride], label=f"dt = {dt[i]}")
+    else:
+        stride = int(nsteps[i]/1000)
+        plt.plot(t, sol[i][::stride], label=f"dt = {dt[i]}")
+    stride_list.append(int(nsteps[i]/100))
 
 plt.xlabel("Time [s]")
 plt.ylabel("Tip displacement [arb. unit]")
@@ -44,10 +49,10 @@ plt.legend()
 plt.savefig(dir_plot+f"Solution_{alpha}.pdf", bbox_inches="tight")
 plt.show()
 
-reference = sol[-1][::stride[-1]]
+reference = sol[-1][::stride_list[-1]]
 err = []
 for i in range(len(sol)-1):
-    err.append(np.linalg.norm(sol[i][::stride[i]]-reference, ord=np.inf))
+    err.append(np.linalg.norm(sol[i][::stride_list[i]]-reference, ord=np.inf))
 
 ord = np.log(err[-2]/err[-1])/np.log(dt[-3]/dt[-2])
 
