@@ -64,7 +64,6 @@ class InverseProblem:
                 print('=================================')
                 print('             LBFGS               ')
                 print('=================================')
-                print()
             nepochs = kwargs.get("nepochs", 1)
             optimization_settings = {
                 'lr'                :   lr,
@@ -103,8 +102,20 @@ class InverseProblem:
         def get_grad():
             return torch.cat([p.grad for p in Model.parameters()])
 
-        self.iter = 0
+        self.iter = -1
         def closure():
+            ### handle line search steps
+            info = self.Optimizer.state_dict()['state'][0]
+            n_iter = info["n_iter"]
+            if self.iter == n_iter:
+                self.convergence_history['loss'].pop()
+                self.convergence_history['grad'].pop()
+                self.convergence_history['parameters'].pop()
+                print("Linesearch Step: Removed from history")
+            self.iter = n_iter
+            print()
+            print()
+
             self.Optimizer.zero_grad()
             theta     = parameters_to_vector(Model.parameters())
             obs       = Forward()
@@ -116,11 +127,10 @@ class InverseProblem:
             grad_norm = self.grad.norm(p=float('inf'))
 
             ### convergence monitor
-            self.iter = self.iter + 1
             if verbose:
                 print()
                 print('=================================')
-                print('-> Iteration {0:d}/{1:d}'.format(self.iter, max_iter))
+                print('-> Iteration {0:d}/{1:d}'.format(self.iter + 1, max_iter))
                 print('=================================')
                 print('loss = ', self.loss.item())
                 print('grad = ', grad_norm.item())
@@ -128,8 +138,6 @@ class InverseProblem:
                 print('parameters:')                
                 self.print_parameters(Model.parameters())
                 print('=================================')
-                print()
-                print()
 
             ### store convergence history
             self.convergence_history['loss'].append(self.loss.item())
