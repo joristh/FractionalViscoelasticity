@@ -126,8 +126,9 @@ class SumOfExponentialsKernel_Torch(nn.Module):
         exponents = kwargs.get("exponents", None)
         if exponents is not None: self.set_Exponents(exponents)
 
-        inf_mode = kwargs.get("inf_mode", None)
-        if inf_mode is not None: self.set_InfMode(inf_mode)
+        infmode = kwargs.get("infmode", None)
+        if infmode is not None: self.set_InfMode(infmode)
+        else: self.InfMode.requires_grad_(False)
         
     
     def __call__(self, t):       
