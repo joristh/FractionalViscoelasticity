@@ -318,9 +318,14 @@ class ViscoelasticityProblem(torch_fenics.FEniCSModule):
 
     def observe(self):
         if self.observer:
+            print("Line1")
             if not hasattr(self, "observations"): self.observations = []
+            print("Line2")
             obs_n = self.observer.observe()
+            print("Line3")
             self.observations.append(obs_n)
+            print("Line4")
+
 
     """
     ==================================================================================================================
