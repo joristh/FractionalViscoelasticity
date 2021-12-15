@@ -367,14 +367,20 @@ class ViscoelasticityProblem(torch_fenics.FEniCSModule):
 
         for (i, t) in tqdm(enumerate(self.time_steps), total=self.time_steps.size):
 
+            print("update_forces")
             self.update_forces(t)
             
+            print("solve_linear_system")
             self.solve_linear_system()
 
+            print("update_state")
             self.update_state()
+            print("export_state")
             self.export_state(t)
-
+            
+            print("observe")
             self.observe()
+            print("user_defined_routines")
             self.user_defined_routines(t)
             
 

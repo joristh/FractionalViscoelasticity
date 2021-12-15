@@ -25,7 +25,7 @@ inputfolder  = "./workfolder/"
 outputfolder = "./workfolder/"
 
 ### Beam
-mesh = BoxMesh(Point(0., 0., 0.), Point(1., 0.1, 0.04), 60, 10, 5)
+mesh = BoxMesh(Point(0., 0., 0.), Point(1., 0.1, 0.04), 20, 2, 1)
 
 ### Sub domain for clamp at left end
 def DirichletBoundary(x, on_boundary):
