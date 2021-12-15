@@ -9,6 +9,7 @@ font = {'size'   : 12}
 matplotlib.rc('font', **font)
 
 alpha = 1.
+exclude_loading = False
 
 dir = config['outputfolder']
 dir_plot = dir + "convergence/plots/"
@@ -30,6 +31,11 @@ idx = np.argsort(nsteps)
 sol, nsteps = sol[idx], nsteps[idx]
 
 dt = config['FinalTime']/nsteps
+
+if exclude_loading:
+    for i, solution in enumerate(sol):
+        sol[i] = solution[len(solution)//2:]
+    nsteps = nsteps/2
 
 t = np.linspace(0, config['FinalTime'], 1000)
 stride_list = []

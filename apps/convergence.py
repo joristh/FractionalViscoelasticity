@@ -19,6 +19,8 @@ config['weights']   = RA.c
 config['exponents'] = RA.d
 path = config['outputfolder']
 
+config['viscosity'] = True
+
 n_steps = 10**order
 config['nTimeSteps'] = n_steps*config['FinalTime']
 
