@@ -352,6 +352,7 @@ class ViscoelasticityProblem(torch_fenics.FEniCSModule):
     
     def forward_solve(self, parameters=None, loading=None):
 
+        print("Update parameters")
         if parameters is not None:
             if self.fg_split_kernels:
                 n = len(parameters) // 2
@@ -360,11 +361,14 @@ class ViscoelasticityProblem(torch_fenics.FEniCSModule):
             else: ### One kernel
                 self.kernel.update_parameters(parameters)
 
+        print("set_load")
         if loading is not None:
             self.set_load(loading=loading)
 
+        print("initialize_state")
         self.initialize_state()
 
+        print("Start Loop")
         for (i, t) in tqdm(enumerate(self.time_steps), total=self.time_steps.size):
 
             print("update_forces")

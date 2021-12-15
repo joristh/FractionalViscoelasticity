@@ -107,7 +107,6 @@ class InverseProblem:
         self.iter = -1
         def closure():
             ### handle line search steps
-            print("Start closure")
             info = self.Optimizer.state_dict()['state'][0]
             n_iter = info["n_iter"]
             if self.iter == n_iter:
