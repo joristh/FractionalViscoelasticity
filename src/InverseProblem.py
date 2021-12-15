@@ -94,7 +94,9 @@ class InverseProblem:
                 return obs
         else:
             def Forward():
+                print("forward_solve")
                 Model.forward_solve()
+                print("Model.observations")
                 obs = Model.observations
                 return obs
 
@@ -105,6 +107,7 @@ class InverseProblem:
         self.iter = -1
         def closure():
             ### handle line search steps
+            print("Start closure")
             info = self.Optimizer.state_dict()['state'][0]
             n_iter = info["n_iter"]
             if self.iter == n_iter:
@@ -118,10 +121,13 @@ class InverseProblem:
 
             self.Optimizer.zero_grad()
             theta     = parameters_to_vector(Model.parameters())
+
             obs       = Forward()
+            print("Calculate loss")
             self.loss = objective(obs)
             if reg: ### regularization term
                 self.loss = self.loss + reg(theta)
+            print("Backpropagate Loss")
             self.loss.backward()
             self.grad = get_grad()
             grad_norm = self.grad.norm(p=float('inf'))
