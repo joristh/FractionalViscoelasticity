@@ -374,7 +374,7 @@ class ViscoelasticityProblem(torch_fenics.FEniCSModule):
         self.initialize_state()
 
         print("Start Loop")
-        for (i, t) in enumerate(self.time_steps):
+        for (i, t) in tqdm(enumerate(self.time_steps)):
 
             print("update_forces")
             self.update_forces(t)
