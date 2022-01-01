@@ -12,13 +12,11 @@ Initial guess
 ==================================================================================================================
 """
 
-alpha = 0.5
-RA = RationalApproximation(alpha=alpha, tol=1.e-4)#, verbose="plot")
-config['nModes'] = RA.nModes
-if config['split']:
-    config['initial_guess'] = [RA.c, RA.d, RA.c, RA.d]
-else:
-    config['initial_guess'] = [RA.c, RA.d]
+# alpha = 0.5
+# RA = RationalApproximation(alpha=alpha, tol=1.e-4)
+# config['nModes'] = RA.nModes
+# config['initial_guess'] = [RA.c, RA.d]
+config['initial_guess'] = None
 
 
 """
@@ -31,13 +29,13 @@ data_true = np.loadtxt(config['inputfolder']+"data_tip_displacement.csv")
 data = data_true.copy()
 
 ### Optimize on a shorter interval
-data = data[:int(data.size//2)]
+data = data[:int(data.shape[0]//2), :]
 T, nsteps = config['FinalTime'], config['nTimeSteps']
-config['nTimeSteps'] = data.size
-config['FinalTime']  = data.size * (T / nsteps)
+config['nTimeSteps'] = data.shape[0]
+config['FinalTime']  = data.shape[0] * (T / nsteps)
 
 ### Noisy data
-scale = (noise_level/100) * np.abs(data).max()
+scale = (noise_level/100) * np.abs(data) #.max(axis=0, keepdims=True)
 noise = np.random.normal(loc=0, scale=scale, size=data.shape) ### additive noise
 data  = data + noise
 np.savetxt(config['outputfolder']+"data_tip_displacement_noisy.csv", data)
@@ -65,13 +63,18 @@ print("================================")
 print("       INVERSE PROBLEM")
 print("================================")
 
+if config["two_kernels"]:
+    kernels = [SumOfExponentialsKernel(), SumOfExponentialsKernel()] ### default kernels: alpha=0.5, 8 modes
+else:
+    kernels = [SumOfExponentialsKernel()]
 
-model = ViscoelasticityProblem(**config)
+model = ViscoelasticityProblem(**config, kernels=kernels)
 
 objective = MSE(data=data)
 IP        = InverseProblem(**config)
 
 theta_opt = IP.calibrate(model, objective, **config)
+theta_opt = (np.array(theta_opt)**2).tolist()
 
 print("Optimal parameters :", theta_opt)
 print("Final loss         :", IP.loss)
@@ -110,7 +113,7 @@ with torch.no_grad():
     plt.title('Tip displacement')
     plt.plot(model.time_steps, model.observations, "r-",  label="prediction")
     plt.plot(model.time_steps, data_true, "b--", label="truth")
-    plt.plot(model.time_steps[:data.size], data, "bo", label="data")
+    plt.plot(model.time_steps[:data.shape[0]], data[...,0], "bo", label="data")
     plt.legend()
 
     if not model.fg_inverse:
