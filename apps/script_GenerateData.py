@@ -4,7 +4,7 @@
 from matplotlib.pyplot import figure
 from config import *
 
-fg_export = True  ### write results on the disk (True) or only solve (False)
+fg_export = False  ### write results on the disk (True) or only solve (False)
 config['export_vtk'] = True
 
 

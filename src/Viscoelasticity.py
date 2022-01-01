@@ -708,15 +708,16 @@ Default linear solver
 """
 
 def set_linSolver():
-	# solver = dl.PETScLUSolver("mumps")
+	solver = PETScLUSolver("mumps")
 	# solver = dl.PETScKrylovSolver("bicgstab", "amg")
 	# solver = dl.PETScKrylovSolver("gmres", "amg")
 	# solver = PETScKrylovSolver("cg", "ilu")
-	solver = KrylovSolver("cg", "ilu")
-	solver.parameters["maximum_iterations"] = 1000
-	solver.parameters["relative_tolerance"] = 1.e-6
-	solver.parameters["absolute_tolerance"] = 1.e-6
-	solver.parameters["error_on_nonconvergence"] = True
-	solver.parameters["nonzero_initial_guess"] = False
-	solver.parameters["monitor_convergence"] = False
+	# solver = KrylovSolver("cg", "ilu")
+	# solver = KrylovSolver("cg", "hypre_euclid")
+	# solver.parameters["maximum_iterations"] = 1000
+	# solver.parameters["relative_tolerance"] = 1.e-6
+	# solver.parameters["absolute_tolerance"] = 1.e-6
+	# solver.parameters["error_on_nonconvergence"] = True
+	# solver.parameters["nonzero_initial_guess"] = False
+	# solver.parameters["monitor_convergence"] = False
 	return solver
