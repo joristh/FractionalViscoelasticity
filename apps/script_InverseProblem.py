@@ -29,7 +29,10 @@ data_true = np.loadtxt(config['inputfolder']+"data_tip_displacement.csv")
 data = data_true.copy()
 
 ### Optimize on a shorter interval
-data = data[:int(data.shape[0]//2), :]
+if len(data.shape) == 2:
+    data = data[:int(data.shape[0]//2), :]
+else:
+    data = data[:int(data.shape[0]//2)]
 T, nsteps = config['FinalTime'], config['nTimeSteps']
 config['nTimeSteps'] = data.shape[0]
 config['FinalTime']  = data.shape[0] * (T / nsteps)
