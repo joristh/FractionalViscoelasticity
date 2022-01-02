@@ -42,20 +42,26 @@ def kernel_frac_init(t):
     return k
 
 RA = RationalApproximation(alpha=alpha_init)
-c0, d0 = RA.c, RA.d
-@np.vectorize
-def kernel_exp_init(t):
-    return np.sum(c0 * np.exp(-d0*t))
+parameters_init = list(RA.c) + list(RA.d)
+if config["infmode"]: parameters_init.append(RA.c_inf)
+kernel_init = SumOfExponentialsKernel(parameters = theta_init)
 
-c1, d1 = np.array(theta_true)
-@np.vectorize
-def kernel_exp_true(t):
-    return np.sum(c1 * np.exp(-d1*t))
 
-c2, d2 = np.array(theta_pred.detach()).reshape([2,-1])
-@np.vectorize
-def kernel_exp_pred(t):
-    return np.sum(c2 * np.exp(-d2*t))
+kernel_true = SumOfExponentialsKernel(parameters = theta_true)
+#theta_true = np.array(theta_true)
+#nModes = len(theta_true) // 2
+#c1 = theta_true[:nModes]
+#d1 = theta_true[nModes:2*nModes]
+#@np.vectorize
+#def kernel_exp_true(t):
+#    return np.sum(c1 * np.exp(-d1*t))
+
+theta_pred = np.array([i.detach().numpy() for i in theta_pred[0]])
+kernel_pred = SumOfExponentialsKernel(parameters = theta_pred)
+#c2, d2 = np.array(theta_pred.detach()).reshape([2,-1])
+#@np.vectorize
+#def kernel_exp_pred(t):
+#    return np.sum(c2 * np.exp(-d2*t))
 
 
 
@@ -150,9 +156,9 @@ with torch.no_grad():
     plt.figure('Kernels', **figure_settings)
     # plt.title('Kernels')
     t = np.geomspace(0.04, 4, 100)
-    plt.plot(t, kernel_exp_init(t), "-", color="gray", label="sum-of-exponentials (initial guess)", **plot_settings)
-    plt.plot(t, kernel_exp_pred(t), "r-", label="sum-of-exponentials (predict)", **plot_settings)
-    plt.plot(t, kernel_exp_true(t), "b-", label="sum-of-exponentials (truth)", **plot_settings)
+    plt.plot(t, kernel_init.eval_func(t), "-", color="gray", label="sum-of-exponentials (initial guess)", **plot_settings)
+    plt.plot(t, kernel_pred.eval_func(t), "r-", label="sum-of-exponentials (predict)", **plot_settings)
+    plt.plot(t, kernel_true.eval_func(t), "b-", label="sum-of-exponentials (truth)", **plot_settings)
     plt.plot(t, kernel_frac_init(t), "o", color="gray", label=r"fractional $\alpha=0.5$", **plot_settings)
     plt.plot(t, kernel_frac(t), "bo", label=r"fractional $\alpha=0.7$", **plot_settings)
     plt.xscale('log')
@@ -168,16 +174,19 @@ with torch.no_grad():
     Figure 4: Parameters convergence
     ==================================================================================================================
     """
+    
     parameters = convergence_history["parameters"]
-    nsteps = len(parameters)
-    p = torch.stack(parameters).reshape([nsteps,2,-1]).detach().numpy()
+    p = np.array(parameters)
+    nmodes = p.shape[-1]//2
+    #nsteps = len(parameters)
+    #p = torch.stack(parameters).reshape([nsteps,2,-1]).detach().numpy()
 
     plt.figure('Parameters convergence: Weights', **figure_settings)
     # plt.title('Parameters convergence: Weights')
-    for i in range(p.shape[-1]):
-        plt.plot(p[:,0,i]/(1+p[:,1,i]), label=r'$w_{{%(i)d}}$' % {'i' : i+1}, **plot_settings)
+    for i in range(nmodes):
+        plt.plot(p[:,0,i]/(1+p[:,0,i+nmodes]), label=r'$w_{{%(i)d}}$' % {'i' : i+1}, **plot_settings)
     plt.ylabel(r"$\frac{w}{1+\lambda}$")
-    plt.xlabel(r"$iteration$")
+    plt.xlabel("Iteration")
     plt.legend()
 
     tikzplotlib.save(tikz_folder+"plt_weights_convergence.tex", **tikz_settings)
@@ -186,15 +195,42 @@ with torch.no_grad():
 
     plt.figure('Parameters convergence: Exponents', **figure_settings)
     # plt.title('Parameters convergence: Exponents')
-    for i in range(p.shape[-1]):
-        plt.plot(p[:,1,i]/(1+p[:,1,i]), label=r'$\lambda_{{%(i)d}}$' % {'i' : i+1}, **plot_settings)
+    for i in range(nmodes):
+        plt.plot(p[:,0,i+nmodes]/(1+p[:,0,i+nmodes]), label=r'$\lambda_{{%(i)d}}$' % {'i' : i+1}, **plot_settings)
     # plt.yscale('log')
     plt.ylabel(r"$\frac{\lambda}{1+\lambda}$")
-    plt.xlabel(r"$iteration$")
+    plt.xlabel("Iteration")
     plt.legend()
 
     tikzplotlib.save(tikz_folder+"plt_exponents_convergence.tex", **tikz_settings)
+    
+    if len(p)%2!=0:
+        plt.figure('Parameters convergence: Infmode', **figure_settings)
+        # plt.title('Parameters convergence: Exponents')
+        plt.plot(p[:,0,-1]/(1+p[:,0,-1]), **plot_settings)
+        # plt.yscale('log')
+        plt.ylabel(r"$w_\infty$")
+        plt.xlabel("Iteration")
+        plt.legend()
 
+        tikzplotlib.save(tikz_folder+"plt_exponents_convergence.tex", **tikz_settings)
+
+
+    """
+    ==================================================================================================================
+    Figure 5: Convergence
+    ==================================================================================================================
+    """
+
+    loss = convergence_history["loss"]
+    grad = convergence_history["grad"]
+
+    plt.figure("Convergence", **figure_settings)
+    plt.plot(loss, label="Loss", **plot_settings)
+    plt.plot(grad, label="Gradient", **plot_settings)
+    plt.legend()
+    plt.yscale("log")
+    plt.xlabel("Iteration")
 
     """
     ==================================================================================================================

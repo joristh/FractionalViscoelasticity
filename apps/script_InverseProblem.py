@@ -29,7 +29,7 @@ data_true = np.loadtxt(config['inputfolder']+"data_tip_displacement.csv")
 data = data_true.copy()
 
 ### Optimize on a shorter interval
-if len(data.shape) == 2:
+if config['two_kernels']:
     data = data[:int(data.shape[0]//2), :]
 else:
     data = data[:int(data.shape[0]//2)]
@@ -67,9 +67,9 @@ print("       INVERSE PROBLEM")
 print("================================")
 
 if config["two_kernels"]:
-    kernels = [SumOfExponentialsKernel(), SumOfExponentialsKernel()] ### default kernels: alpha=0.5, 8 modes
+    kernels = [SumOfExponentialsKernel(**config), SumOfExponentialsKernel(**config)] ### default kernels: alpha=0.5, 8 modes
 else:
-    kernels = [SumOfExponentialsKernel()]
+    kernels = [SumOfExponentialsKernel(**config)]
 
 model = ViscoelasticityProblem(**config, kernels=kernels)
 
@@ -77,7 +77,6 @@ objective = MSE(data=data)
 IP        = InverseProblem(**config)
 
 theta_opt = IP.calibrate(model, objective, **config)
-theta_opt = (np.array(theta_opt)**2).tolist()
 
 print("Optimal parameters :", theta_opt)
 print("Final loss         :", IP.loss)
@@ -99,10 +98,23 @@ print("================================")
 ### Recover the original time settings
 model.set_time_stepper(nTimeSteps=nsteps, FinalTime=T)
 
-model.forward_solve()
+model.flags["inverse"] = False
+
+loading = config.get("loading", None)
+if isinstance(loading, list): ### multiple loadings case
+    obs = torch.tensor([])
+    for loading_instance in loading:
+        model.forward_solve(loading=loading_instance)
+        obs = torch.cat([obs, model.observations], dim=-1)
+    pred = obs.numpy()
+else:
+    model.forward_solve()
+    obs = model.observations
+    pred =  obs.numpy()
 
 if fg_export: ### write data to file
     save_data(config['outputfolder']+"inferred_model", model, other=[theta_opt, IP.convergence_history])
+    np.savetxt(config['outputfolder']+"tip_displacement_pred.csv", pred)
 
 
 """
@@ -114,9 +126,9 @@ Display
 with torch.no_grad():
     plt.subplot(1,2,1)
     plt.title('Tip displacement')
-    plt.plot(model.time_steps, model.observations, "r-",  label="prediction")
+    plt.plot(model.time_steps, pred, "r-",  label="prediction")
     plt.plot(model.time_steps, data_true, "b--", label="truth")
-    plt.plot(model.time_steps[:data.shape[0]], data[...,0], "bo", label="data")
+    plt.plot(model.time_steps[:data.shape[0]], data, "bo", label="data")
     plt.legend()
 
     if not model.fg_inverse:

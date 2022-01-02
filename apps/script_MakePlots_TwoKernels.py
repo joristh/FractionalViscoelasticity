@@ -45,7 +45,12 @@ RA = RationalApproximation(alpha=alpha_init, tol=1.e-4)
 parameters0 = list(RA.c) + list(RA.d)
 kernel_init = SumOfExponentialsKernel(parameters=parameters0)
 
-parameters1, parameters2 = np.array(theta_pred).tolist()
+#tmp = np.array([i.detach().numpy() for i in theta_pred[0]])
+#n = len(tmp)
+#parameters1 = tmp[:n].tolist()
+#parameters2 = tmp[n:].tolist()
+#parameters1, parameters2 = np.array(theta_pred).tolist()
+parameters1, parameters2 = theta_pred
 kernel_pred_tr  = SumOfExponentialsKernel(parameters=parameters1)
 kernel_pred_dev = SumOfExponentialsKernel(parameters=parameters2)
 

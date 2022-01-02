@@ -37,7 +37,7 @@ class InverseProblem:
 
         if initial_guess is not None:
             for i, p in enumerate(Model.parameters()):
-                p.data[:] = torch.tensor(initial_guess[i]).sqrt()
+                p.data[:] = torch.tensor(initial_guess[i])
 
         # ### print initial parameters
         # # self.print_parameters(Model.parameters())
@@ -216,7 +216,7 @@ class InverseProblem:
             if verbose:
                 print()
                 print('=================================')
-                print('-> Iteration {0:d}/{1:d}'.format(self.iter+1, max_iter))
+                print('-> Iteration {0:d}/{1:d}'.format(self.iter, max_iter))
                 print('=================================')
                 print('loss = ', self.loss.item())
                 print('grad = ', grad_norm.item())
@@ -228,7 +228,7 @@ class InverseProblem:
             ### store convergence history
             self.convergence_history['loss'].append(self.loss.item())
             self.convergence_history['grad'].append(grad_norm.item())
-            self.convergence_history['parameters'].append([list(p) for p in Model.parameters()])
+            self.convergence_history['parameters'].append([list(torch.square(p)) for p in Model.parameters()])
 
             return self.loss
 
@@ -240,7 +240,7 @@ class InverseProblem:
 
         ### ending
         # theta_opt = parameters_to_vector(Model.parameters())
-        theta_opt = [list(p) for p in Model.parameters()]
+        theta_opt = [list(torch.square(p)) for p in Model.parameters()]
         Model.fg_inverse = False
         return theta_opt
 

@@ -87,6 +87,8 @@ class SumOfExponentialsKernel(AbstractKernel):
         settings = kwargs.get("init_fractional", {"alpha" : 0.5, "tol" : 1.e-4 }) ### dictionary of RA settings
         RA = RationalApproximation(**settings)
         parameters = list(RA.c) + list(RA.d)
+        if kwargs.get("infmode", False):
+            parameters.append(RA.c_inf)
         return parameters
 
 
@@ -94,11 +96,20 @@ class SumOfExponentialsKernel(AbstractKernel):
         if parameters is not None:
             self._kernel_parameters.data[:] = torch.tensor(parameters).double().sqrt() ### impose positivity via sqrt/square
             nparameters = self._kernel_parameters.data.numel()
-            assert( nparameters % 2 == 0 )
+            #assert( nparameters % 2 == 0 )
             self.nModes = nparameters // 2
+            if (nparameters % 2 == 0):
+                self.infmode_bool = False
+            else:
+                self.infmode_bool = True
 
         self.weights   = self._kernel_parameters[:self.nModes].square()
-        self.exponents = self._kernel_parameters[self.nModes:].square()
+        if self.infmode_bool:
+            self.exponents = self._kernel_parameters[self.nModes:-1].square()
+            self.infmode   = self._kernel_parameters[-1].square()
+        else:
+            self.exponents = self._kernel_parameters[self.nModes:].square()
+            self.infmode   = 0
 
 
     """
@@ -115,8 +126,8 @@ class SumOfExponentialsKernel(AbstractKernel):
 
     # @np.vectorize
     def _eval_spectrum(self, z):
-        c, d = self.weights.detach().numpy(), self.exponents.detach().numpy()     
-        return np.sum(c / (z + d))
+        c, d, c_inf = self.weights.detach().numpy(), self.exponents.detach().numpy(), self.exponents.detach().numpy()
+        return np.sum(c / (z + d)) + c_inf
 
 
     """
@@ -138,7 +149,7 @@ class SumOfExponentialsKernel(AbstractKernel):
         self.coef_ak = (1 + 2*lgh) / den
         self.coef_bk = ( (1-theta)*(1+lgh) - theta * h/2 ) / den
         self.coef_ck = 1 / den
-        self.coef_a  = ( self.wk * self.coef_ak ).sum()
+        self.coef_a  = ( self.wk * self.coef_ak ).sum() + 2/h * self.infmode
         self.coef_c  = ( self.wk * self.coef_ck ).sum()
 
 

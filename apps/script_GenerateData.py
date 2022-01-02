@@ -4,7 +4,7 @@
 from matplotlib.pyplot import figure
 from config import *
 
-fg_export = False  ### write results on the disk (True) or only solve (False)
+fg_export = True  ### write results on the disk (True) or only solve (False)
 config['export_vtk'] = True
 
 
@@ -14,10 +14,13 @@ Kernel and its rational approximation
 ==================================================================================================================
 """
 
+infmode = config.get('infmode', False)
+
 if config['two_kernels']:
     alpha1 = 0.9
     RA = RationalApproximation(alpha=alpha1)
     parameters1 = list(RA.c) + list(RA.d)
+    if infmode==True: parameters1.append(RA.c_inf)
     # parameters1 = np.array([2.79058303e-02, 3.84100129e-02, 5.89650116e-02, 3.37202484e-02,
     #    3.40912830e-01, 1.28161585e+00, 2.23960854e+00, 4.80126425e+00,
     #    3.68392812e-02, 1.32895882e-01, 2.93308726e-01, 6.40031339e-01,
@@ -27,6 +30,7 @@ if config['two_kernels']:
     alpha2 = 0.7
     RA = RationalApproximation(alpha=alpha2)
     parameters2 = list(RA.c) + list(RA.d)
+    if infmode==True: parameters2.append(RA.c_inf)
     # parameters2 = np.array([ 0.32337598,  0.41615834,  0.47182692,  1.03023015,  0.24184555,
     #     0.85714041, -0.11852263,  3.39125769,  0.10000886,  0.26773023,
     #     0.12313697,  0.70114342,  1.4451129 ,  3.89811345, 10.0704782 ,
@@ -40,6 +44,7 @@ else:
     alpha = 0.7
     RA = RationalApproximation(alpha=alpha)
     parameters = list(RA.c) + list(RA.d)
+    if infmode==True: parameters.append(RA.c_inf)
     kernel  = SumOfExponentialsKernel(parameters=parameters)
     kernels = [kernel]
 

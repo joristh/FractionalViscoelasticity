@@ -58,6 +58,8 @@ config = {
     'NeumannBoundary'   :   NeumannBoundary,
     'loading'           :   [load_Bending, load_Extension], ###  load_Bending, [load_Bending, load_Extension]
 
+    'infmode'           :   True,
+
     ### Material parameters
     'Young'             :   1.e3,
     'Poisson'           :   0.3,
