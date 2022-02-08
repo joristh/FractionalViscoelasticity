@@ -39,9 +39,13 @@ def NeumannBoundary(x, on_boundary):
 ### loading (depending on t)
 cutoff_time    = 4/5
 magnitude      = 1.
-load_Bending   = Expression(("0", "t <= tc ? p0*t/tc : 0", "0"), t=0, tc=cutoff_time, p0=magnitude, degree=0) ### Bending
-magnitude      = 1.e2
-load_Extension = Expression(("t <= tc ? p0*t/tc : 0", "0", "0"), t=0, tc=cutoff_time, p0=magnitude, degree=0) ### Extension
+#load_Bending   = Expression(("0", "t <= tc ? p0*t/tc : 0", "0"), t=0, tc=cutoff_time, p0=magnitude, degree=0) ### Bending
+tmax = 4/5
+tzero = 1.
+load_Bending = Expression(("0", "t <= tm ? p0*t/tm : (t <= tz ? p0*(1 - (t-tm)/(tz-tm)) : 0)", "0"), t=0, tm=tmax, tz=tzero, p0=magnitude, degree=0)
+#load_Bending   = Expression(("0", "t <= tc ? p0*t/tc : 0", "0"), t=0, tc=cutoff_time, p0=magnitude, degree=0) ### Bending
+#magnitude      = 1.e2
+#load_Extension = Expression(("t <= tc ? p0*t/tc : 0", "0", "0"), t=0, tc=cutoff_time, p0=magnitude, degree=0) ### Extension
 
 
 config = {
@@ -56,7 +60,7 @@ config = {
     'mesh'              :   mesh,
     'DirichletBoundary' :   DirichletBoundary,
     'NeumannBoundary'   :   NeumannBoundary,
-    'loading'           :   [load_Bending, load_Extension], ###  load_Bending, [load_Bending, load_Extension]
+    'loading'           :   [load_Bending],#, load_Extension], ###  load_Bending, [load_Bending, load_Extension]
 
     'infmode'           :   True,
 
@@ -67,7 +71,7 @@ config = {
 
     ### Viscous term
     'viscosity'         :   True,
-    'two_kernels'       :   True,
+    'two_kernels'       :   False,
 
     ### Measurements
     'observer'          :   TipDisplacementObserver,

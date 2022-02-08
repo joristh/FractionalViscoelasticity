@@ -3,6 +3,7 @@ import sys
 import os
 from config import *
 import time
+from datetime import datetime
 
 # smaller mesh for faster execution
 mesh = BoxMesh(Point(0., 0., 0.), Point(1., 0.1, 0.04), 15, 2, 1)
@@ -10,7 +11,8 @@ config['mesh'] = mesh
 
 # get input values
 alpha = float(sys.argv[1])
-order = int(sys.argv[2])
+index = int(sys.argv[2])
+maxindex = int(sys.argv[3])
 
 # compute sum of exponentials approximation for fixed alpha
 RA = RationalApproximation(alpha=alpha)
@@ -21,18 +23,19 @@ path = config['outputfolder']
 
 config['viscosity'] = True
 
-n_steps = 10**order
-config['nTimeSteps'] = n_steps*config['FinalTime']
+n_steps_list = 2**np.arange(0, maxindex)*1e2
+n_steps_list = np.append(n_steps_list, n_steps_list[-1]*10)
+n_steps = n_steps_list[index]
+config['nTimeSteps'] = int(n_steps*config['FinalTime'])
 
-#print(f"START: dt={1/n_steps} started")
+print(f"START: dt={1/n_steps} started")
 
-time.sleep(.5)
 Model = ViscoelasticityProblem(**config)
-Model.forward_solve()
+Model.forward_solve(loading=config["loading"][0])
 obs = Model.observations
 data = obs.numpy()
 path = path+f"convergence/alpha{alpha}/"
 os.makedirs(path, exist_ok=True)
-np.savetxt(path+f"nsteps{n_steps}.txt", data)
+np.savetxt(path+f"tipdisplacement_{alpha}_{n_steps}.txt", data)
 
 print(f"END: dt={1/n_steps} finished")
