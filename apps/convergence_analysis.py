@@ -35,7 +35,7 @@ print(numsteps)
 reference_steps = numsteps.pop()
 reference = data[reference_steps]
 
-dt = config['FinalTime']/np.array(numsteps)
+dt = 1/np.array(numsteps)
 
 #Plot solutions
 t = np.linspace(0, config['FinalTime'], len(reference))
