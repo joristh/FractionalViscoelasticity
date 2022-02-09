@@ -3,13 +3,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib
 from config import *
+from scipy.optimize import curve_fit
 
 plt.style.use("bmh")
 font = {'size'   : 12}
 matplotlib.rc('font', **font)
 
-alpha = 1.
-exclude_loading = False
+alpha = 1.0
 
 dir = config['outputfolder']
 dir_plot = dir + "convergence/plots/"
@@ -18,36 +18,29 @@ dir += f"convergence/alpha{alpha}/"
 sol = []
 nsteps  = []
 
+data = {}
+numsteps = []
 for filename in os.listdir(dir):
-   
-   sol.append(np.loadtxt(dir+filename))
-   nsteps.append(len(sol[-1]))
-   #print(len(sol[-1]))
+    filepath = os.path.join(dir, filename)
+    if not os.path.isfile(filepath):
+        continue
+    tmp_num = int(float((filename.split("_")[-1]).rstrip(".txt")))
+    numsteps.append(tmp_num)
+    tmp_data = np.insert(np.loadtxt(filepath), 0, 0.)
+    data.update({tmp_num : tmp_data})
 
 print("All solutions loaded.")
+numsteps = sorted(numsteps)
+print(numsteps)
+reference_steps = numsteps.pop()
+reference = data[reference_steps]
 
-sol, nsteps = np.array(sol, dtype=object), np.array(nsteps)
-idx = np.argsort(nsteps)
-sol, nsteps = sol[idx], nsteps[idx]
+dt = config['FinalTime']/np.array(numsteps)
 
-dt = config['FinalTime']/nsteps
-
-if exclude_loading:
-    for i, solution in enumerate(sol):
-        sol[i] = solution[len(solution)//2:]
-    nsteps = nsteps/2
-
-t = np.linspace(0, config['FinalTime'], 1000)
-stride_list = []
-for i in range(0, len(nsteps)):
-    if i==0:
-        stride = int(nsteps[i]/100)
-        plt.plot(t[::10], sol[i][::stride], label=f"dt = {dt[i]}")
-    else:
-        stride = int(nsteps[i]/1000)
-        plt.plot(t, sol[i][::stride], label=f"dt = {dt[i]}")
-    stride_list.append(int(nsteps[i]/100))
-
+#Plot solutions
+t = np.linspace(0, config['FinalTime'], len(reference))
+plotskip = 100
+plt.plot(t[::plotskip], reference[::plotskip])
 plt.xlabel("Time [s]")
 plt.ylabel("Tip displacement [arb. unit]")
 plt.title(f"Alpha= {alpha}")
@@ -55,19 +48,54 @@ plt.legend()
 plt.savefig(dir_plot+f"Solution_{alpha}.pdf", bbox_inches="tight")
 plt.show()
 
-reference = sol[-1][::stride_list[-1]]
-err = []
-for i in range(len(sol)-1):
-    err.append(np.linalg.norm(sol[i][::stride_list[i]]-reference, ord=np.inf))
+#error1 = []
+#
+#for numstep in numsteps:
+#    error1.append(np.abs(data[numstep][-1] - reference[-1]))
+#
+#order = np.log(error1[-2]/error1[-1])/np.log(dt[-2]/dt[-1])
+#print("Order: ", order)
+#
+#plt.plot(dt, error1, "o-")
+##plt.title(f"Convergence  -  Alpha= {alpha}  -  Order= {ord:{0}.{3}}")
+#plt.yscale("log")
+#plt.xscale("log")
+#plt.xlabel("$dt$")
+#plt.ylabel("$\mathcal{E}_\infty(dt)$")
+#plt.savefig(dir_plot+f"Convergence_{alpha}.pdf", bbox_inches="tight")
+#plt.show()
 
-ord = np.log(err[-2]/err[-1])/np.log(dt[-3]/dt[-2])
 
-plt.plot(dt[:-1], err, "o-")
-plt.title(f"Convergence  -  Alpha= {alpha}  -  Order= {ord:{0}.{3}}")
+error2 = []
+
+for i, numstep in enumerate(numsteps):
+    skip = reference_steps//numstep
+    error = 0
+    for j in range(numstep):
+        u_ref_tip = reference[j*skip]
+        u_tip = data[numstep][j]
+        error += (u_ref_tip-u_tip)**2
+    error2.append(np.sqrt(dt[i]*error))
+
+order = np.log(error2[-2]/error2[-1])/np.log(dt[-2]/dt[-1])
+print("Order: ", order)
+
+def f(dt, coeff, order):
+    return np.log(dt)*order + coeff
+
+param, param_cov = curve_fit(f, dt[3:], np.log(np.array(error2)[3:]))
+fit_error = np.exp(f(dt, param[0], param[1]))
+print(param)
+
+
+plt.plot(dt, error2, "o-", label="Data", zorder=10)
+plt.plot(dt, fit_error, label=f"Fit - order = {param[1]:{0}.{3}}", c="k", linestyle="--", zorder=9)
+plt.title(f"Convergence Viscoelasticity - Alpha={alpha}")
 plt.yscale("log")
 plt.xscale("log")
 plt.xlabel("$dt$")
-plt.ylabel("$\mathcal{E}_\infty(dt)$")
+plt.ylabel("$\mathcal{E}_{tip}(dt)$")
+plt.legend()
 plt.savefig(dir_plot+f"Convergence_{alpha}.pdf", bbox_inches="tight")
 plt.show()
 
