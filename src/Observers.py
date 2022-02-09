@@ -52,10 +52,10 @@ class TipDisplacementObserver(AbstractObserver):
 
     def solve(self, u):
         ds, S = self.surface_measure, self.tip_area
-        # u_comp = split(u)
-        # u_tip  = assemble(u_comp[1]*ds) / S
-        u_norm = sqrt(dot(u, u))
-        u_tip  = assemble(u_norm*ds) / S
+        u_comp = split(u)
+        u_tip  = assemble(u_comp[1]*ds) / S
+        #u_norm = sqrt(dot(u, u))
+        #u_tip  = assemble(u_norm*ds) / S
         return u_tip
 
     def input_templates(self):

@@ -6,13 +6,15 @@ import time
 from datetime import datetime
 
 # smaller mesh for faster execution
-mesh = BoxMesh(Point(0., 0., 0.), Point(1., 0.1, 0.04), 15, 2, 1)
+mesh = BoxMesh(Point(0., 0., 0.), Point(1., 0.1, 0.04), 20, 4, 2)
 config['mesh'] = mesh
 
 # get input values
 alpha = float(sys.argv[1])
 index = int(sys.argv[2])
 maxindex = int(sys.argv[3])
+
+timestring = datetime.strftime(datetime.now(), "%Y%m%d%H%M")
 
 # infmode boolean from config
 infmode = config.get('infmode', False)
@@ -41,6 +43,6 @@ obs = Model.observations
 data = obs.numpy()
 path = path+f"convergence/alpha{alpha}/"
 os.makedirs(path, exist_ok=True)
-np.savetxt(path+f"tipdisplacement_{alpha}_{n_steps}.txt", data)
+np.savetxt(path+f"tipdisplacement_{timestring}_{alpha}_{n_steps}.txt", data)
 
 print(f"END: dt={1/n_steps} finished")

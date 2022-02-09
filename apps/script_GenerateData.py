@@ -64,6 +64,19 @@ print("================================")
 print("       FORWARD RUN")
 print("================================")
 
+mesh = BoxMesh(Point(0., 0., 0.), Point(1., 0.1, 0.04), 20, 4, 2)
+config['mesh'] = mesh
+
+infmode = config.get('infmode', False)
+alpha = 1.0
+# compute sum of exponentials approximation for fixed alpha
+RA = RationalApproximation(alpha=alpha)
+parameters = list(RA.c) + list(RA.d)
+if infmode==True: parameters.append(RA.c_inf)
+kernel  = SumOfExponentialsKernel(parameters=parameters)
+kernels = [kernel]
+
+
 Model = ViscoelasticityProblem(**config, kernels=kernels)
 
 loading = config.get("loading", None)

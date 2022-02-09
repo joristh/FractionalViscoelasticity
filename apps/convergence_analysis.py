@@ -9,7 +9,7 @@ plt.style.use("bmh")
 font = {'size'   : 12}
 matplotlib.rc('font', **font)
 
-alpha = 1.0
+alpha = 0.0
 
 dir = config['outputfolder']
 dir_plot = dir + "convergence/plots/"
