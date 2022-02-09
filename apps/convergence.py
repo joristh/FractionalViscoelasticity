@@ -14,11 +14,16 @@ alpha = float(sys.argv[1])
 index = int(sys.argv[2])
 maxindex = int(sys.argv[3])
 
+# infmode boolean from config
+infmode = config.get('infmode', False)
+
 # compute sum of exponentials approximation for fixed alpha
 RA = RationalApproximation(alpha=alpha)
-config['nModes']    = RA.nModes
-config['weights']   = RA.c
-config['exponents'] = RA.d
+parameters = list(RA.c) + list(RA.d)
+if infmode==True: parameters.append(RA.c_inf)
+kernel  = SumOfExponentialsKernel(parameters=parameters)
+kernels = [kernel]
+
 path = config['outputfolder']
 
 config['viscosity'] = True
@@ -30,7 +35,7 @@ config['nTimeSteps'] = int(n_steps*config['FinalTime'])
 
 print(f"START: dt={1/n_steps} started")
 
-Model = ViscoelasticityProblem(**config)
+Model = ViscoelasticityProblem(**config, kernels=kernels)
 Model.forward_solve(loading=config["loading"][0])
 obs = Model.observations
 data = obs.numpy()
