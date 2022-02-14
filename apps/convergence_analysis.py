@@ -2,6 +2,7 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib
+import tikzplotlib
 from config import *
 from scipy.optimize import curve_fit
 
@@ -9,10 +10,16 @@ plt.style.use("bmh")
 font = {'size'   : 12}
 matplotlib.rc('font', **font)
 
-alpha = 0.0
+figure_settings = {'figsize' : (10,6)}
+plot_settings = {'markersize' : 2}
+legend_settings = {'loc' : 'center left', 'bbox_to_anchor' : (1.1, 0.5)}
+tikz_settings = {'axis_width' : '\\textwidth'}
+
+alpha = 1.
 
 dir = config['outputfolder']
 dir_plot = dir + "convergence/plots/"
+tikz_folder = dir_plot
 dir += f"convergence/alpha{alpha}/"
 
 sol = []
@@ -39,13 +46,15 @@ dt = 1/np.array(numsteps)
 
 #Plot solutions
 t = np.linspace(0, config['FinalTime'], len(reference))
-plotskip = 100
-plt.plot(t[::plotskip], reference[::plotskip])
+plotskip = len(reference)//500
+plt.figure('Solutions', **figure_settings)
+plt.plot(t[::plotskip], reference[::plotskip], **plot_settings)
 plt.xlabel("Time [s]")
 plt.ylabel("Tip displacement [arb. unit]")
 plt.title(f"Alpha= {alpha}")
 plt.legend()
 plt.savefig(dir_plot+f"Solution_{alpha}.pdf", bbox_inches="tight")
+tikzplotlib.save(dir_plot+f"plt_convergence_solution_{alpha}.tex", **tikz_settings)
 plt.show()
 
 #error1 = []
@@ -87,16 +96,18 @@ param, param_cov = curve_fit(f, dt[3:], np.log(np.array(error2)[3:]))
 fit_error = np.exp(f(dt, param[0], param[1]))
 print(param)
 
-
-plt.plot(dt, error2, "o-", label="Data", zorder=10)
-plt.plot(dt, fit_error, label=f"Fit - order = {param[1]:{0}.{3}}", c="k", linestyle="--", zorder=9)
-plt.title(f"Convergence Viscoelasticity - Alpha={alpha}")
+plt.figure('Solutions', figsize=(6,6))
+plt.plot(dt, error2, "o--", label="Data", zorder=10, **plot_settings)
+plt.plot(dt, fit_error, label=f"Fit - order = {param[1]:{0}.{3}}", c="tab:blue", linestyle="-", zorder=9, **plot_settings)
+#plt.title(f"Convergence Viscoelasticity - Alpha={alpha}")
 plt.yscale("log")
 plt.xscale("log")
 plt.xlabel("$dt$")
 plt.ylabel("$\mathcal{E}_{tip}(dt)$")
+plt.title(f"Alpha= {alpha}")
 plt.legend()
 plt.savefig(dir_plot+f"Convergence_{alpha}.pdf", bbox_inches="tight")
+tikzplotlib.save(dir_plot+f"plt_convergence_{alpha}.tex", **tikz_settings)
 plt.show()
 
 print("All plots created.")
